@@ -259,9 +259,12 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 ## ⚠️ 关键注意事项
 
 1. **音频 VAE 必须 fp32** —— 用 fp16 会没声音或音画不同步
-2. **torchaudio 必须与 torch 同版本**（setup.sh 已自动处理）
+2. **torchaudio**：legacy 版必须与 torch 同版本；latest 版已不再强依赖（setup.sh 自动处理）
 3. **aarch64 需 `LD_PRELOAD=libgomp.so.1`**（启动脚本已内置）
-4. **ComfyUI 必须锁 commit** `bd34f338`（补丁基于该版本）
+4. **ComfyUI 版本与补丁成对锁定**，用 `COMFY_PROFILE` 选择：
+   - `latest`（默认）：`61e524bd`（v0.44.0+37）+ `assets/patches/comfyui-61e524bd.patch`（**CPU 单测通过，910B 待实测**）
+   - `legacy`：`bd34f338`（v0.32.0）+ `assets/patches/comfyui-bd34f338.patch`（910B 已实测）
+   - 例：`COMFY_PROFILE=legacy bash setup.sh`；INT8 路径可用 `COMFY_NPU_INT8_PATCH=0` 切到 comfy-kitchen 原生 Ascend 后端
 5. 昇腾只选 `int8_convrot` 系列权重；**NVFP4 / FP8 / SLA 稀疏注意力是 N 卡专属**。
    顺带纠正一个**跨平台**结论（2026-10-13 N 卡真机验证）：**H3 的 GGUF 文本编码器在所有平台都不可用**
    —— 所有 H3 的 GGUF 编码器仓库都缺 mmproj 视觉塔，构建不出 tokenizer（`ClipLoaderGGUF` 必崩）。
