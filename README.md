@@ -73,6 +73,7 @@
 git clone https://gitcode.com/nxxwjbl/minimax-h3-ascend-uncensored.git   # GitHub 镜像见文末
 cd minimax-h3-ascend
 bash setup.sh                      # ① 装好一切（拉ComfyUI+打昇腾补丁+依赖+工作流）
+# 国内拉 GitHub 慢可加代理: bash setup.sh --gh-proxy https://gp.1314510.xyz
 bash scripts/download_models.sh    # ② 下模型（约90GB，hf-mirror 分片并行，支持断点续传）
 bash scripts/start_comfyui.sh      # ③ 启动，浏览器打开 http://127.0.0.1:8188
 ```
@@ -280,6 +281,8 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
    - 例：`COMFY_PROFILE=legacy bash setup.sh`；INT8 路径可用 `COMFY_NPU_INT8_PATCH=0` 切到 comfy-kitchen 原生 Ascend 后端
    - ComfyUI 源码默认从 fork [BenjaminHernandez9794/ComfyUI-npu](https://github.com/BenjaminHernandez9794/ComfyUI-npu) 拉取，并**直接切到已适配 NPU 的分支**：latest → `ascend-npu-v0.44`，legacy → `ascend-npu-v0.32`（可用 `COMFY_BRANCH` 指定其他分支）
    - `COMFY_REPO=<git 地址>` 可换成官方或其他镜像；仓库里没有对应分支时自动退回「固定 commit + `assets/patches/` 补丁」，也可用 `COMFY_USE_PATCH=1` 强制走补丁
+   - `COMFY_HOME` 下已有 ComfyUI 仓库时**不重新克隆**，只切换到对应分支并更新：本地没有自己的提交就直接对齐远端；有本地提交则先备份为 `<分支>-backup-<时间>` 再对齐；未提交改动自动 `git stash`。目录存在但不是 git 仓库时报错退出
+   - `--gh-proxy URL`（或环境变量 `GH_PROXY`）：前缀式 GitHub 代理，如 `bash setup.sh --gh-proxy https://gp.1314510.xyz`，实际拉取 `URL/https://github.com/...`；代理不通时自动改直连。`--profile latest|legacy` 等同 `COMFY_PROFILE`，`bash setup.sh -h` 查看用法
    - 旧版 setup.sh 是把补丁直接打在工作区里的，重跑新版时会先 `git stash` 保存这些改动再切分支
 5. 昇腾只选 `int8_convrot` 系列权重；**NVFP4 / FP8 / SLA 稀疏注意力是 N 卡专属**。
    顺带纠正一个**跨平台**结论（2026-10-13 N 卡真机验证）：**H3 的 GGUF 文本编码器在所有平台都不可用**
