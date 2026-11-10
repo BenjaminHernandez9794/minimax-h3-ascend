@@ -2,9 +2,28 @@
 # =============================================================
 # MiniMax-H3 on Ascend 一键部署脚本
 # 适用: CANNLab / 昇腾 910B / 910C 容器与环境
-# 用法: bash setup.sh
+# 用法: bash setup.sh [--gh-proxy URL] [--profile latest|legacy]
+#   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
+#                   拉取时用 URL/https://github.com/...；也可用环境变量 GH_PROXY
 # =============================================================
 set -euo pipefail
+
+usage() { sed -n '3,7p' "$0" | sed 's/^# \{0,1\}//'; }
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
+        --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
+        --profile)    COMFY_PROFILE="${2:?--profile 需要 latest 或 legacy}"; shift 2 ;;
+        --profile=*)  COMFY_PROFILE="${1#*=}"; shift ;;
+        -h|--help)    usage; exit 0 ;;
+        *) echo "!! 未知参数: $1"; usage; exit 1 ;;
+    esac
+done
+GH_PROXY="${GH_PROXY:-}"
+GH_PROXY="${GH_PROXY%/}"
+if [ -n "$GH_PROXY" ] && [[ "$GH_PROXY" != http://* && "$GH_PROXY" != https://* ]]; then
+    GH_PROXY="https://$GH_PROXY"
+fi
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
@@ -32,6 +51,11 @@ COMFY_REPO="${COMFY_REPO:-https://github.com/BenjaminHernandez9794/ComfyUI-npu.g
 COMFY_BRANCH="${COMFY_BRANCH:-$DEFAULT_BRANCH}"
 COMFY_USE_PATCH="${COMFY_USE_PATCH:-0}"
 PIP_MIRROR="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+# 实际拉取地址：设置了 GH_PROXY 且仓库在 github.com 时走代理
+COMFY_FETCH_URL="$COMFY_REPO"
+if [ -n "$GH_PROXY" ] && [[ "$COMFY_REPO" == https://github.com/* ]]; then
+    COMFY_FETCH_URL="$GH_PROXY/$COMFY_REPO"
+fi
 
 echo "=== [1/6] 环境检查 ==="
 
@@ -63,36 +87,98 @@ PY
 
 echo "=== [2/6] 获取 ComfyUI (profile=$COMFY_PROFILE) ==="
 echo "仓库: $COMFY_REPO"
-if [ ! -d "$COMFY_HOME/.git" ]; then
+[ "$COMFY_FETCH_URL" != "$COMFY_REPO" ] && echo "经 GitHub 代理: $COMFY_FETCH_URL"
+if [ -d "$COMFY_HOME/.git" ]; then
+    COMFY_EXISTING=1
+    echo "检测到已有 ComfyUI 仓库: $COMFY_HOME —— 跳过克隆，只切换分支并更新"
+elif [ -d "$COMFY_HOME" ] && [ -n "$(ls -A "$COMFY_HOME" 2>/dev/null)" ]; then
+    echo "!! $COMFY_HOME 已存在且非空，但不是 git 仓库；请移走该目录或用 COMFY_HOME 指定其他位置"
+    exit 1
+else
+    COMFY_EXISTING=0
+    echo "克隆到: $COMFY_HOME"
     mkdir -p "$COMFY_HOME"
     git -C "$COMFY_HOME" init -q
 fi
 cd "$COMFY_HOME"
-# 已有目录（例如之前从官方仓库克隆的）统一把 origin 指向 COMFY_REPO
-if [ "$(git remote get-url origin 2>/dev/null || true)" != "$COMFY_REPO" ]; then
-    git remote get-url origin >/dev/null 2>&1 && git remote set-url origin "$COMFY_REPO" || git remote add origin "$COMFY_REPO"
-fi
+# 已有目录（例如之前从官方仓库克隆的）统一把 origin 指向本次的拉取地址
+set_origin() {
+    if git remote get-url origin >/dev/null 2>&1; then
+        local cur; cur=$(git remote get-url origin)
+        if [ "$cur" != "$1" ]; then
+            echo "origin 原为 $cur，改为 $1"
+            git remote set-url origin "$1"
+        fi
+    else
+        git remote add origin "$1"
+    fi
+}
+set_origin "$COMFY_FETCH_URL"
 # 旧版 setup.sh 是把补丁直接打在工作区里的；切分支前先把本地改动收起来，避免 checkout 冲突
 if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
     git stash push -q -u -m "setup.sh auto-stash $(date +%Y%m%d-%H%M%S)" && \
         echo "本地有未提交改动（多为旧版打的补丁），已 git stash 保存，可用 git stash list 查看"
 fi
+# 新克隆或本来就是浅克隆的仓库用 --depth 1；已有完整历史的仓库不加，避免把它变成浅克隆
+FETCH_DEPTH=()
+if [ "$COMFY_EXISTING" = "0" ] || [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+    FETCH_DEPTH=(--depth 1)
+fi
 
 retry() { "$@" || { echo "网络问题，重试..."; sleep 3; "$@"; }; }
+# 检查分支是否存在：0=存在，2=仓库可达但没有该分支，其他=网络/仓库不可达
+probe_branch() {
+    local rc=0
+    git ls-remote --exit-code --heads origin "$COMFY_BRANCH" >/dev/null 2>&1 || rc=$?
+    if [ "$rc" != 0 ] && [ "$rc" != 2 ]; then
+        sleep 3; rc=0
+        git ls-remote --exit-code --heads origin "$COMFY_BRANCH" >/dev/null 2>&1 || rc=$?
+    fi
+    return "$rc"
+}
 USE_BRANCH=0
 if [ "$COMFY_USE_PATCH" != "1" ] && [ -n "$COMFY_BRANCH" ]; then
-    if retry git ls-remote --exit-code --heads origin "$COMFY_BRANCH" >/dev/null; then
-        retry git fetch --depth 1 origin "+refs/heads/$COMFY_BRANCH:refs/remotes/origin/$COMFY_BRANCH"
-        USE_BRANCH=1
-    else
-        echo "!! 仓库中没有分支 $COMFY_BRANCH，改用固定 commit ${COMFY_COMMIT:0:8} + 补丁"
+    rc=0; probe_branch || rc=$?
+    if [ "$rc" != 0 ] && [ "$rc" != 2 ] && [ "$COMFY_FETCH_URL" != "$COMFY_REPO" ]; then
+        echo "!! 代理 $GH_PROXY 不可用，改为直连 $COMFY_REPO"
+        COMFY_FETCH_URL="$COMFY_REPO"; set_origin "$COMFY_FETCH_URL"
+        rc=0; probe_branch || rc=$?
     fi
+    case "$rc" in
+        0)
+            OLD_REMOTE=$(git rev-parse -q --verify "refs/remotes/origin/$COMFY_BRANCH" || true)
+            retry git fetch ${FETCH_DEPTH[@]+"${FETCH_DEPTH[@]}"} origin "+refs/heads/$COMFY_BRANCH:refs/remotes/origin/$COMFY_BRANCH"
+            USE_BRANCH=1 ;;
+        2)  echo "!! 仓库中没有分支 $COMFY_BRANCH，改用固定 commit ${COMFY_COMMIT:0:8} + 补丁" ;;
+        *)  echo "!! 无法访问 $COMFY_FETCH_URL；国内网络可加 --gh-proxy https://gp.1314510.xyz 之类的 GitHub 代理"; exit 1 ;;
+    esac
 fi
 
 if [ "$USE_BRANCH" = "1" ]; then
-    git checkout -q -B "$COMFY_BRANCH" "refs/remotes/origin/$COMFY_BRANCH"
+    REMOTE_REF="refs/remotes/origin/$COMFY_BRANCH"
+    if git show-ref --verify -q "refs/heads/$COMFY_BRANCH"; then
+        git checkout -q "$COMFY_BRANCH"
+        OLD_HEAD=$(git rev-parse --short HEAD)
+        if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$REMOTE_REF")" ]; then
+            echo "分支 $COMFY_BRANCH 已是最新 ($OLD_HEAD)"
+        elif [ -n "$OLD_REMOTE" ] && [ "$(git rev-parse HEAD)" = "$OLD_REMOTE" ]; then
+            # 本地没有自己的提交（停在上次拉到的远端位置），直接对齐（浅克隆下快进判断不可靠）
+            git reset -q --hard "$REMOTE_REF"
+            echo "分支 $COMFY_BRANCH 已更新: $OLD_HEAD -> $(git rev-parse --short HEAD)"
+        elif git merge -q --ff-only "$REMOTE_REF" 2>/dev/null; then
+            echo "分支 $COMFY_BRANCH 已更新: $OLD_HEAD -> $(git rev-parse --short HEAD)"
+        else
+            # 本地分支有远端没有的提交（或浅克隆看不到共同祖先）：备份后对齐远端
+            BACKUP="$COMFY_BRANCH-backup-$(date +%Y%m%d-%H%M%S)"
+            git branch -q "$BACKUP"
+            git reset -q --hard "$REMOTE_REF"
+            echo "分支 $COMFY_BRANCH 无法快进，原状态已备份为 $BACKUP，已对齐远端: $OLD_HEAD -> $(git rev-parse --short HEAD)"
+        fi
+    else
+        git checkout -q -b "$COMFY_BRANCH" "$REMOTE_REF"
+        echo "已切换到 NPU 适配分支: $COMFY_BRANCH"
+    fi
     git branch -q --set-upstream-to="origin/$COMFY_BRANCH" "$COMFY_BRANCH" 2>/dev/null || true
-    echo "已切换到 NPU 适配分支: $COMFY_BRANCH"
     git log --oneline -1
     echo "=== [3/6] 检查昇腾适配补丁 ==="
     if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
@@ -101,7 +187,7 @@ if [ "$USE_BRANCH" = "1" ]; then
         echo "提示: 分支内容与 $(basename "$PATCH_FILE") 不完全一致（分支可能已有后续修正），以分支为准"
     fi
 else
-    retry git fetch --depth 1 origin "$COMFY_COMMIT"
+    retry git fetch ${FETCH_DEPTH[@]+"${FETCH_DEPTH[@]}"} origin "$COMFY_COMMIT"
     git checkout -q --detach FETCH_HEAD
     git log --oneline -1
     echo "=== [3/6] 应用昇腾适配补丁 ==="
