@@ -13,6 +13,9 @@
 #   pe_gguf   孤海 QwenImagePromptOptimizer 节点的 GGUF 模型（需 llama-cpp-python，
 #             昇腾上只能跑 CPU，不建议；工作流里该节点默认是旁路状态）                  约 13.5GB
 #
+#   注：提示词优化相关的 pe / pe_gguf 模型已在下方注释掉，默认不下载。
+#       如需启用，去掉对应行前的 # 即可（pe 走原生 TextGenerate，pe_gguf 昇腾上仅 CPU）。
+#
 # 子目录与工作流一致（Qwen\、Qwen-功能2.1\）。工作流是在 Windows 上保存的，路径里是反斜杠，
 # Linux 上加载后需在 UNETLoader / LoraLoader / Power Lora Loader 里重新选一次同名文件。
 #
@@ -32,14 +35,14 @@ GooHAI/Qwen-image-2.1_loras:Qwen2.1_扩图_GH_3750.safetensors                  
 GooHAI/Qwen-image-2.1_loras:Qwen2.1%20一致性无偏移_GH_V1.0.safetensors                     loras/Qwen-功能2.1/
 
 # ---- 提示词优化（原生 TextGenerate + CLIPLoader）----
-Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors  text_encoders  pe
-Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors  text_encoders  pe
+# Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors  text_encoders  pe
+# Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors  text_encoders  pe
 
 # ---- 换头 / 换身 LoRA（工作流里改过名）----
 Alissonerdx/BFS-Best-Face-Swap:bfs_head_v1.1_qwen_2.1.safetensors     loras/Qwen-功能2.1/Qwen21-换头bfs_head_v1.1_qwen_2.1.safetensors     bfs
 Alissonerdx/BFS-Best-Face-Swap:bfs_body_swap_v1.0_qwen_2.1.safetensors loras/Qwen-功能2.1/Qwen21-换身bfs_body_swap_v1.0_qwen_2.1.safetensors bfs
 
 # ---- 孤海提示词优化节点（GGUF，models/LLM）----
-prithivMLmods/Qwen-Image-2.1-PE-T2I-GGUF:Qwen-Image-2.1-PE-T2I.Q5_K_S.gguf        LLM  pe_gguf
-prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.Q5_K_S.gguf        LLM  pe_gguf
-prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.mmproj-bf16.gguf   LLM  pe_gguf
+# prithivMLmods/Qwen-Image-2.1-PE-T2I-GGUF:Qwen-Image-2.1-PE-T2I.Q5_K_S.gguf        LLM  pe_gguf
+# prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.Q5_K_S.gguf        LLM  pe_gguf
+# prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.mmproj-bf16.gguf   LLM  pe_gguf
