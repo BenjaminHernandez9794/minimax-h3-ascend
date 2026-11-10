@@ -278,6 +278,7 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
    - `latest`（默认）：`61e524bd`（v0.44.0+37）+ `assets/patches/comfyui-61e524bd.patch`（**CPU 单测通过，910B 待实测**）
    - `legacy`：`bd34f338`（v0.32.0）+ `assets/patches/comfyui-bd34f338.patch`（910B 已实测）
    - 例：`COMFY_PROFILE=legacy bash setup.sh`；INT8 路径可用 `COMFY_NPU_INT8_PATCH=0` 切到 comfy-kitchen 原生 Ascend 后端
+   - ComfyUI 源码默认从 fork [BenjaminHernandez9794/ComfyUI-npu](https://github.com/BenjaminHernandez9794/ComfyUI-npu) 拉取（两个 profile 的 commit 都在里面），可用 `COMFY_REPO=<git 地址>` 改成官方或其他镜像
 5. 昇腾只选 `int8_convrot` 系列权重；**NVFP4 / FP8 / SLA 稀疏注意力是 N 卡专属**。
    顺带纠正一个**跨平台**结论（2026-10-13 N 卡真机验证）：**H3 的 GGUF 文本编码器在所有平台都不可用**
    —— 所有 H3 的 GGUF 编码器仓库都缺 mmproj 视觉塔，构建不出 tokenizer（`ClipLoaderGGUF` 必崩）。

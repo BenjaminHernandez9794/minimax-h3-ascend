@@ -16,7 +16,7 @@
 |---|---|---|
 | `assets/patches/comfyui-bd34f338.patch`（昇腾 NPU 多卡适配补丁，原版）及基于它 rebase 的 `assets/patches/comfyui-61e524bd.patch` | [Ascend-SACT/MiniMax-H3-Comfy-NPU](https://atomgit.com/Ascend-SACT/MiniMax-H3-Comfy-NPU) | Apache-2.0 |
 | `assets/ComfyUI-MiniMax-H3-Turbo-verified.tgz`（Turbo 采样节点归档，含本地 NPU 兼容修改） | 基于 [Larryvrh/ComfyUI-MiniMax-H3-Turbo](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo) | Apache-2.0 |
-| ComfyUI 本体（由 setup.sh 从上游克隆，不包含在本仓库） | [Comfy-Org/ComfyUI](https://github.com/Comfy-Org/ComfyUI) | GPL-3.0 |
+| ComfyUI 本体（由 setup.sh 从 fork [BenjaminHernandez9794/ComfyUI-npu](https://github.com/BenjaminHernandez9794/ComfyUI-npu) 克隆，不包含在本仓库） | 上游 [Comfy-Org/ComfyUI](https://github.com/Comfy-Org/ComfyUI) | GPL-3.0 |
 
 > 说明：本仓库以"补丁 + 归档 + 一键脚本"的形式分发昇腾适配层，便于在昇腾硬件上复现；
 > 所有上游代码的修改均在 patch 文件中明示，且保留原始 LICENSE 文件。
