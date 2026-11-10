@@ -5,6 +5,7 @@
 
 ## 2026-11-10
 
+- **setup.sh 依赖安装防卡死**：去掉 `pip -q` 显示下载进度；`--prefer-binary --timeout 60 --retries 3`；pip<20.3 先升级（新版 av>=17、comfy-angle 只有 manylinux_2_28 轮子，旧 pip 会转去源码编译）；用约束文件锁住预装的 torch / torch_npu / torchvision / torchaudio，防止被 requirements 升级；latest 档 torchaudio 不再回退到 download.pytorch.org；`PIP_MIRROR` 可覆盖。
 - **setup.sh 自动切到 NPU 适配分支**：latest → `ascend-npu-v0.44`，legacy → `ascend-npu-v0.32`（新建，= bd34f338 + 原版补丁），`COMFY_BRANCH` 可覆盖；仓库没有该分支时退回 commit + 补丁（`COMFY_USE_PATCH=1` 可强制）。首次获取改为浅拉取分支，不再完整 clone；已有工作区改动会先 stash。补丁打不上时直接报错退出。
 - **setup.sh 改从 fork 拉 ComfyUI**：默认 `https://github.com/BenjaminHernandez9794/ComfyUI-npu.git`，可用 `COMFY_REPO` 覆盖；已有的 ComfyUI 目录会把 origin 改指向该地址。
 - **模型下载器通用化**：`scripts/dl_models.py` 改为按清单文件下载，默认清单 `model_lists/ascend.txt` / `nvidia.txt`。
