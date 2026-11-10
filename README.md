@@ -120,6 +120,14 @@ bash scripts/download_models.sh --verify                    # 下完按 HF 的 s
 
 一句话：**有免费昇腾就别租卡**；非要租，按显存下菜——24GB 只能 480P，32GB 能摸 768P。
 
+### 额外自定义节点
+
+```bash
+bash setup.sh --nodes qwen21            # 部署时顺带装 Qwen-Image 2.1 整合工作流需要的节点
+bash scripts/install_nodes.sh qwen21-full --gh-proxy https://gp.1314510.xyz   # 单独安装/更新
+bash scripts/install_nodes.sh --list    # 可选名称与别名
+```
+
 ## 📦 模型清单（含审查状态 / 硬件要求 / 测试状态）
 
 > 全部公开可用；✅=本仓库实测通过，❓=未测试（理论可用，欢迎反馈），❌=昇腾不可用。

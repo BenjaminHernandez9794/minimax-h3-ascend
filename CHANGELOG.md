@@ -5,6 +5,11 @@
 
 ## 2026-11-10
 
+- 新增 `scripts/install_nodes.sh` 与 `setup.sh --nodes LIST`（或 `CUSTOM_NODES`）：安装额外自定义节点（goohai、rgthree、layerstyle、easyuse、comfyroll，别名 `qwen21` / `qwen21-full`，也可填 GitHub 地址）。走 `--gh-proxy`；已存在则 `git pull --ff-only`；依赖安装时锁住 torch/torch_npu/torchvision/numpy，跳过 torch 系列、opencv 与 dlib；opencv 统一为 contrib，import 失败时换 headless。
+- 新增 `model_lists/qwen_image_2.1_turbo.txt`：Qwen-Image 2.1 Turbo 9 步整合工作流（编辑/扩图/移除/重绘/文生图）的模型清单，默认约 17.8GB，可选标签 `pe`、`bfs`、`pe_gguf`。
+- dl_models.py：清单里的来源和目标支持 `%20` 等 URL 转义（文件名带空格时用），本地按解码后的名字保存。
+- setup.sh：pip 约束文件不再锁 torchaudio（已装的不匹配版本会让 `torchaudio==<torch 版本>` 无解，910B 实测 torchaudio 2.11.0+cpu 配 torch 2.7.1 报 ResolutionImpossible）；latest 档检测到版本不匹配时只提示、不改动（新版 ComfyUI 不使用 torchaudio）。
+- **修复 910B 上 VAE 加载报错 `'torch.device' object has no attribute 'dtype'`**：torch_npu 给 `nn.Module` 打了同名方法 `cast_weight(device)`，`Module.to()` 会调用它，与新版 ComfyUI `RMSNorm.cast_weight(input)` 冲突。ComfyUI-npu `ascend-npu-v0.44` 新提交 d7a39826 按参数类型分流；同时为 SQLite < 3.24（无 UPSERT）的 Python 加回退，修复 `Failed to persist prompt history ... near "ON": syntax error`。`assets/patches/comfyui-61e524bd.patch` 已按分支重新生成。
 - **start_comfyui.sh 默认前台运行并实时显示日志**：输出同时 tee 到 `/mnt/workspace/runtime/comfyui-<端口>.log`（原来只写文件，终端无输出）；`-d` / `DAEMON=1` 后台运行；`PYTHONUNBUFFERED=1`；停旧进程时最多等 15 秒再强杀；`COMFY_RUNTIME_DIR` 可改日志目录；无 /dev/davinci* 时不再因 pipefail 静默退出。
 - **`download_models.sh --lowvram` 改为约 61GB**：原来文档写约 57GB，但 Ref2VA 主模型（21GB）和无审查文本编码器（26GB）默认开启，实际约 108GB（旧版脚本同样如此）。现在 --lowvram 同时关掉 ref2va、heretic，需要时加 `--with ref2va,heretic`；`--with/--without` 按出现顺序生效。下载开始前列出每个文件大小、合计、本地已完成量；默认清单实为约 121GB，文档已更正。
 - **setup.sh 已有目录只切分支并更新**：`COMFY_HOME` 已是 git 仓库时跳过克隆；本地分支无自有提交则对齐远端，否则备份为 `<分支>-backup-<时间>` 后对齐；已有完整历史的仓库不再用 `--depth 1`（避免变成浅克隆）；非 git 的非空目录报错退出。

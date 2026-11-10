@@ -1,0 +1,48 @@
+# Qwen-Image 2.1 Turbo 9 步整合工作流（编辑 / 扩图 / 移除 / 局部重绘 / 文生图）
+# 来源工作流: ▶▷Qwen2.1-Turbo-9步-编辑&扩图&移除&重绘&生图（整合）.json
+#
+# 用法:
+#   bash scripts/download_models.sh -l qwen_image_2.1_turbo.txt --dry-run      # 先看清单与大小
+#   bash scripts/download_models.sh -l qwen_image_2.1_turbo.txt                # 默认约 17.8GB
+#   bash scripts/download_models.sh -l qwen_image_2.1_turbo.txt --with pe,bfs  # 加提示词优化编码器和换头/换身 LoRA
+#
+# 标签:
+#   (无标签)  必需：Turbo INT8 UNet、Qwen3-VL 文本编码器、VAE、孤海三个功能 LoRA       约 17.8GB
+#   pe        "提示词优化"分组（原生 TextGenerate）用的两个 Qwen3.5-9B PE 编码器      约 18.9GB
+#   bfs       Power Lora Loader 里默认关闭的换头 / 换身 LoRA（Alissonerdx/BFS）         约 0.5GB
+#   pe_gguf   孤海 QwenImagePromptOptimizer 节点的 GGUF 模型（需 llama-cpp-python，
+#             昇腾上只能跑 CPU，不建议；工作流里该节点默认是旁路状态）                  约 13.5GB
+#
+#   注：提示词优化相关的 pe / pe_gguf 模型已在下方注释掉，默认不下载。
+#       如需启用，去掉对应行前的 # 即可（pe 走原生 TextGenerate，pe_gguf 昇腾上仅 CPU）。
+#
+# 子目录与工作流一致（Qwen\、Qwen-功能2.1\）。工作流是在 Windows 上保存的，路径里是反斜杠，
+# Linux 上加载后需在 UNETLoader / LoraLoader / Power Lora Loader 里重新选一次同名文件。
+#
+# 工作流还需要这些自定义节点（不在本清单内）:
+#   rgthree-comfy、goohai/Goohaitools-comfyui（孤海系列节点、TextEncodeQwenImage21GH 等）、
+#   ComfyUI_LayerStyle（LayerUtility: ColorImage）、ComfyUI-Easy-Use（easy showAnything）、
+#   ComfyUI_Comfyroll_CustomNodes（CR Text Concatenate）
+
+#@default
+
+# ---- 必需 ----
+Comfy-Org/Qwen-Image-2.1:diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors     diffusion_models/Qwen/
+Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3vl_8b_int8_convrot.safetensors                  text_encoders
+Comfy-Org/Qwen-Image-2.1:vae/qwen_image_2.1_vae_bf16.safetensors                            vae
+GooHAI/Qwen-image-2.1_loras:Qwen2.1_万物移除Remove_GH.safetensors                           loras/Qwen-功能2.1/
+GooHAI/Qwen-image-2.1_loras:Qwen2.1_扩图_GH_3750.safetensors                                loras/Qwen-功能2.1/
+GooHAI/Qwen-image-2.1_loras:Qwen2.1%20一致性无偏移_GH_V1.0.safetensors                     loras/Qwen-功能2.1/
+
+# ---- 提示词优化（原生 TextGenerate + CLIPLoader）----
+# Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors  text_encoders  pe
+# Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors  text_encoders  pe
+
+# ---- 换头 / 换身 LoRA（工作流里改过名）----
+Alissonerdx/BFS-Best-Face-Swap:bfs_head_v1.1_qwen_2.1.safetensors     loras/Qwen-功能2.1/Qwen21-换头bfs_head_v1.1_qwen_2.1.safetensors     bfs
+Alissonerdx/BFS-Best-Face-Swap:bfs_body_swap_v1.0_qwen_2.1.safetensors loras/Qwen-功能2.1/Qwen21-换身bfs_body_swap_v1.0_qwen_2.1.safetensors bfs
+
+# ---- 孤海提示词优化节点（GGUF，models/LLM）----
+# prithivMLmods/Qwen-Image-2.1-PE-T2I-GGUF:Qwen-Image-2.1-PE-T2I.Q5_K_S.gguf        LLM  pe_gguf
+# prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.Q5_K_S.gguf        LLM  pe_gguf
+# prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.mmproj-bf16.gguf   LLM  pe_gguf
