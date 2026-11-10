@@ -244,10 +244,24 @@ else
     elif python3 -c "import torchaudio" >/dev/null 2>&1; then
         echo "torchaudio ${TA_VER} 已安装且可正常 import，保留"
     else
-        # 装着但 import 崩（通常是与 torch ${TORCH_VER} ABI 不匹配）。ComfyUI/H3 及工作流节点都不需要音频，
-        # 直接卸载，让 transformers 当它不存在、跳过音频分支，避免连带弄挂 LayerStyle 等依赖 transformers 的节点。
-        echo "检测到 torchaudio ${TA_VER} 无法 import（与 torch ${TORCH_VER} ABI 不匹配），自动卸载以免弄挂依赖 transformers 的节点"
-        python3 -m pip uninstall -y torchaudio || echo "torchaudio 卸载失败，可手动执行: pip uninstall -y torchaudio"
+        # 装着但 import 崩（通常是与 torch ${TORCH_VER} ABI 不匹配）。ComfyUI/H3 及工作流节点都不需要音频。
+        # 先试卸载让 transformers 当它不存在、跳过音频分支，避免连带弄挂 LayerStyle 等依赖 transformers 的节点。
+        echo "检测到 torchaudio ${TA_VER} 无法 import（与 torch ${TORCH_VER} ABI 不匹配），尝试处理以免弄挂依赖 transformers 的节点"
+        if python3 -m pip uninstall -y torchaudio >/dev/null 2>&1 && ! python3 -c "import torchaudio" >/dev/null 2>&1; then
+            echo "  已卸载坏 torchaudio"
+        else
+            # 卸不掉（常见：装在只读的系统 Python，如 /opt/buildtools），改为把匹配版本装到用户目录覆盖它
+            echo "  无法卸载（可能装在只读系统目录），改为安装匹配版 torchaudio==${TORCH_VER} 到用户目录覆盖"
+            python3 -m pip install --user "torchaudio==${TORCH_VER}" \
+                || python3 -m pip install --user --index-url https://download.pytorch.org/whl/cpu "torchaudio==${TORCH_VER}" \
+                || echo "  !! 自动修复 torchaudio 失败，见下方手动办法"
+            if ! python3 -c "import torchaudio" >/dev/null 2>&1; then
+                echo "  提示: torchaudio 仍无法 import。坏版本装在系统目录且无写权限时，可任选其一手动修复："
+                echo "    a) 在虚拟环境里跑 ComfyUI（venv 的 site-packages 可写，卸载即可）"
+                echo "    b) sudo python3 -m pip uninstall -y torchaudio"
+                echo "    c) python3 -m pip install --user torchaudio==${TORCH_VER}"
+            fi
+        fi
     fi
     # comfy-kitchen / comfy-aimdo 版本由 ComfyUI requirements.txt 锁定 (0.2.41 / 0.6.0)
 fi
