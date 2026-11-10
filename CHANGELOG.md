@@ -5,6 +5,8 @@
 
 ## 2026-11-10
 
+- **start_comfyui.sh 默认前台运行并实时显示日志**：输出同时 tee 到 `/mnt/workspace/runtime/comfyui-<端口>.log`（原来只写文件，终端无输出）；`-d` / `DAEMON=1` 后台运行；`PYTHONUNBUFFERED=1`；停旧进程时最多等 15 秒再强杀；`COMFY_RUNTIME_DIR` 可改日志目录；无 /dev/davinci* 时不再因 pipefail 静默退出。
+- **`download_models.sh --lowvram` 改为约 61GB**：原来文档写约 57GB，但 Ref2VA 主模型（21GB）和无审查文本编码器（26GB）默认开启，实际约 108GB（旧版脚本同样如此）。现在 --lowvram 同时关掉 ref2va、heretic，需要时加 `--with ref2va,heretic`；`--with/--without` 按出现顺序生效。下载开始前列出每个文件大小、合计、本地已完成量；默认清单实为约 121GB，文档已更正。
 - **setup.sh 已有目录只切分支并更新**：`COMFY_HOME` 已是 git 仓库时跳过克隆；本地分支无自有提交则对齐远端，否则备份为 `<分支>-backup-<时间>` 后对齐；已有完整历史的仓库不再用 `--depth 1`（避免变成浅克隆）；非 git 的非空目录报错退出。
 - **setup.sh 支持 GitHub 代理**：`--gh-proxy URL` / `GH_PROXY`（前缀式，如 https://gp.1314510.xyz），代理不通自动直连；新增 `--profile`、`-h`；区分「仓库无此分支」与「网络不通」，后者直接报错并提示加代理。
 - **setup.sh 依赖安装防卡死**：去掉 `pip -q` 显示下载进度；`--prefer-binary --timeout 60 --retries 3`；pip<20.3 先升级（新版 av>=17、comfy-angle 只有 manylinux_2_28 轮子，旧 pip 会转去源码编译）；用约束文件锁住预装的 torch / torch_npu / torchvision / torchaudio，防止被 requirements 升级；latest 档 torchaudio 不再回退到 download.pytorch.org；`PIP_MIRROR` 可覆盖。
