@@ -5,6 +5,7 @@
 
 ## 2026-11-10
 
+- **setup.sh 改从 fork 拉 ComfyUI**：默认 `https://github.com/BenjaminHernandez9794/ComfyUI-npu.git`，可用 `COMFY_REPO` 覆盖；已有的 ComfyUI 目录会把 origin 改指向该地址。
 - **模型下载器通用化**：`scripts/dl_models.py` 改为按清单文件下载，默认清单 `model_lists/ascend.txt` / `nvidia.txt`。
   `download_models.sh -l <清单>` 可指定自己的列表（支持多个、`#@include`、`@revision`、任意 https 直链、目标改名），
   `--with` / `--without` 开关可选模型，另有 `--dry-run`、`--list-tags`、`--verify`（HF sha256）、`HF_TOKEN`。

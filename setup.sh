@@ -23,6 +23,8 @@ case "$COMFY_PROFILE" in
         ;;
     *) echo "!! 未知 COMFY_PROFILE=$COMFY_PROFILE (可选 latest / legacy)"; exit 1 ;;
 esac
+# ComfyUI 源码仓库：默认本项目维护的 fork（含昇腾补丁分支 ascend-npu-v0.44），可用 COMFY_REPO 覆盖
+COMFY_REPO="${COMFY_REPO:-https://github.com/BenjaminHernandez9794/ComfyUI-npu.git}"
 PIP_MIRROR="https://pypi.tuna.tsinghua.edu.cn/simple"
 
 echo "=== [1/6] 环境检查 ==="
@@ -54,10 +56,15 @@ assert torch.npu.is_available(), "torch_npu 不可用，请检查 CANN 与 torch
 PY
 
 echo "=== [2/6] 克隆 ComfyUI (profile=$COMFY_PROFILE, commit=${COMFY_COMMIT:0:8}) ==="
+echo "仓库: $COMFY_REPO"
 if [ ! -d "$COMFY_HOME/.git" ]; then
-    git clone https://github.com/Comfy-Org/ComfyUI.git "$COMFY_HOME"
+    git clone "$COMFY_REPO" "$COMFY_HOME"
 fi
 cd "$COMFY_HOME"
+# 已有目录（例如之前从官方仓库克隆的）统一把 origin 指向 COMFY_REPO
+if [ "$(git remote get-url origin 2>/dev/null || true)" != "$COMFY_REPO" ]; then
+    git remote get-url origin >/dev/null 2>&1 && git remote set-url origin "$COMFY_REPO" || git remote add origin "$COMFY_REPO"
+fi
 git fetch --depth 1 origin "$COMFY_COMMIT" || { echo "网络问题，重试..."; sleep 3; git fetch --depth 1 origin "$COMFY_COMMIT"; }
 git checkout --detach FETCH_HEAD
 git log --oneline -1
