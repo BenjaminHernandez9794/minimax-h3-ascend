@@ -5,6 +5,8 @@
 
 ## 2026-11-10
 
+- **修复 910B 上 cv2 导入报错 `libGLdispatch.so.0: cannot allocate memory in static TLS block`**：torch_npu 等先加载占满静态 TLS，等 opencv 的 libGLdispatch 再 dlopen 就没槽了。症状是 `import cv2` 崩，连带弄挂所有 import cv2 的节点——ComfyUI_LayerStyle、ComfyUI-Easy-Use 整个 IMPORT FAILED，孤海包虽加载成功但 `GH_MaskCropV2`、`GH_CropRestore`、`TextEncodeQwenImage21GH` 等 import cv2 的节点被静默跳过（工作流里显示缺失节点）。`start_comfyui.sh` 现在把 `libGLdispatch.so.0`（和 `libgomp.so.1`）加入 `LD_PRELOAD`，在进程启动、静态 TLS 还够时就拿到槽位。
+
 - 新增 `scripts/install_nodes.sh` 与 `setup.sh --nodes LIST`（或 `CUSTOM_NODES`）：安装额外自定义节点（goohai、rgthree、layerstyle、easyuse、comfyroll，别名 `qwen21` / `qwen21-full`，也可填 GitHub 地址）。走 `--gh-proxy`；已存在则 `git pull --ff-only`；依赖安装时锁住 torch/torch_npu/torchvision/numpy，跳过 torch 系列、opencv 与 dlib；opencv 统一为 contrib，import 失败时换 headless。
 - 新增 `model_lists/qwen_image_2.1_turbo.txt`：Qwen-Image 2.1 Turbo 9 步整合工作流（编辑/扩图/移除/重绘/文生图）的模型清单，默认约 17.8GB，可选标签 `pe`、`bfs`、`pe_gguf`。
 - dl_models.py：清单里的来源和目标支持 `%20` 等 URL 转义（文件名带空格时用），本地按解码后的名字保存。
