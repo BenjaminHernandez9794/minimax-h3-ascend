@@ -74,7 +74,7 @@ git clone https://gitcode.com/nxxwjbl/minimax-h3-ascend-uncensored.git   # GitHu
 cd minimax-h3-ascend
 bash setup.sh                      # ① 装好一切（拉ComfyUI+打昇腾补丁+依赖+工作流）
 # 国内拉 GitHub 慢可加代理: bash setup.sh --gh-proxy https://gp.1314510.xyz
-bash scripts/download_models.sh    # ② 下模型（约90GB，hf-mirror 分片并行，支持断点续传）
+bash scripts/download_models.sh    # ② 下模型（默认约121GB，--lowvram 约61GB；hf-mirror 分片并行，支持断点续传）
 bash scripts/start_comfyui.sh      # ③ 启动，浏览器打开 http://127.0.0.1:8188
 ```
 
@@ -186,7 +186,7 @@ bash scripts/download_models.sh --verify                    # 下完按 HF 的 s
 只有 32GB 显存的 910B？按这套走：
 
 ```bash
-bash scripts/download_models.sh --lowvram   # 只下精简版主模型（21GB），跳过 34GB 完整版
+bash scripts/download_models.sh --lowvram   # 约61GB：精简版主模型（21GB）替代 34GB 完整版，不下 Ref2VA 与无审查文本编码器（需要时加 --with ref2va,heretic）
 bash scripts/start_comfyui.sh               # 启动（脚本会自动设 npu_count=1）
 # 显存仍吃紧时：LOWVRAM=1 bash scripts/start_comfyui.sh
 # 工作流选：fl2va_4step_480P低显存.json（864×480 / 5秒 / 4步 / 单卡）
@@ -295,7 +295,7 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 ## ❓ 常见问题
 
 **Q：下次换一台昇腾机器，能一键复原吗？**
-能。`git clone`（<5MB）→ `setup.sh`（约 3 分钟）→ `download_models.sh`（90GB，40MB/s 约 40 分钟）→ `start_comfyui.sh` → 浏览器开干。前提是新机器有 CANN 环境（CANNLab 镜像自带）。
+能。`git clone`（<5MB）→ `setup.sh`（约 3 分钟）→ `download_models.sh`（默认约121GB / --lowvram 约61GB，开始前会列出每个文件大小与合计）→ `start_comfyui.sh` → 浏览器开干。前提是新机器有 CANN 环境（CANNLab 镜像自带）。
 
 **Q：下载速度怎么样？**
 实测聚合 40MB/s（16 路分片）。环境差时约 10MB/s，支持断点续传，中断重跑不丢进度。

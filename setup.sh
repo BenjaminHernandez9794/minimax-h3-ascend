@@ -258,7 +258,7 @@ cat <<EOF
 ✅ 部署完成！
 
 下一步：
-  1) 下载模型（约 90GB，可断点续传）:
+  1) 下载模型（默认约 121GB，--lowvram 约 61GB，可断点续传）:
        bash scripts/download_models.sh
   2) 启动服务:
        bash scripts/start_comfyui.sh

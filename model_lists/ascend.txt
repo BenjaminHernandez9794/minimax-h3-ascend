@@ -2,7 +2,7 @@
 # 格式见 model_lists/README.md：<来源> <目标目录> [条件标签]
 #@default full ref2va heretic
 
-# 主模型：完整版 34GB（--lowvram 关掉 full，换成 pruned 精简版 21GB）
+# 主模型：完整版 34GB（--lowvram 关掉 full/ref2va/heretic，换成 pruned 精简版 21GB，合计约 61GB）
 Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors          diffusion_models  full
 Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors   diffusion_models  pruned
 Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors  diffusion_models  ref2va

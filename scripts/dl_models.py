@@ -286,11 +286,23 @@ def split_csv(values):
     return out
 
 
+class TagOp(argparse.Action):
+    def __call__(self, parser, ns, values, option_string=None):
+        ops = list(getattr(ns, self.dest, None) or [])
+        ops.append((option_string == "--with", values))
+        setattr(ns, self.dest, ops)
+
+
+def gb(n):
+    return f"{n/1e9:.2f}GB"
+
+
 def main():
     ap = argparse.ArgumentParser(description="按清单文件下载模型（分片并行 + 断点续传）")
     ap.add_argument("-l", "--list", action="append", help="模型清单文件，可多次指定；可写 model_lists/ 下的文件名")
-    ap.add_argument("--with", dest="with_", action="append", metavar="TAGS", help="开启可选标签，逗号分隔")
-    ap.add_argument("--without", action="append", metavar="TAGS", help="关闭标签，逗号分隔")
+    # --with / --without 按出现顺序生效，后面的覆盖前面的（--lowvram 展开在前，用户再写 --with ref2va 即可加回）
+    ap.add_argument("--with", dest="tag_ops", action=TagOp, metavar="TAGS", help="开启可选标签，逗号分隔")
+    ap.add_argument("--without", dest="tag_ops", action=TagOp, metavar="TAGS", help="关闭标签，逗号分隔")
     ap.add_argument("--models-dir", help="模型根目录（默认 $COMFY_HOME/models）")
     ap.add_argument("--endpoint", help="HF 下载源（默认 $HF_ENDPOINT 或 https://hf-mirror.com）")
     ap.add_argument("--conn", type=int, help="每文件并发连接数（默认 $MAX_CONN 或 32）")
@@ -325,9 +337,11 @@ def main():
         (tags.add if on else tags.discard)(tag)
         if env == "SKIP_FULL_FL2VA" and v:
             tags.add("pruned")  # 旧行为：跳过完整版时自动加精简版
-    tags |= split_csv(a.with_)
-    tags -= split_csv(a.without)
-    unknown = (split_csv(a.with_) | split_csv(a.without)) - all_tags
+    mentioned = set()
+    for on, v in (a.tag_ops or []):
+        ts = split_csv([v]); mentioned |= ts
+        (tags.update if on else tags.difference_update)(ts)
+    unknown = mentioned - all_tags
     if unknown:
         print(f"[警告] 清单中没有这些标签: {', '.join(sorted(unknown))}", flush=True)
 
@@ -349,10 +363,6 @@ def main():
 
     print(f"清单: {', '.join(lists)}  |  标签: {', '.join(sorted(tags)) or '(无)'}")
     print(f"目标: {models_dir}  |  源: {endpoint}  |  {len(jobs)} 个文件")
-    if a.dry_run:
-        for url, path in jobs:
-            print(f"  {os.path.relpath(path, models_dir)}  <-  {url}")
-        return 0
     if not jobs:
         print("没有要下载的文件。")
         return 0
@@ -363,6 +373,26 @@ def main():
         session.headers["Authorization"] = f"Bearer {tok}"
     adapter = requests.adapters.HTTPAdapter(pool_connections=fpar * 2, pool_maxsize=nconn * fpar + 8)
     session.mount("https://", adapter); session.mount("http://", adapter)
+
+    # 先列出每个文件的大小、合计和本地已有多少，避免「到底要下多少」心里没数
+    def size_of(job):
+        try:
+            return probe(session, job[0])[1]
+        except Exception:
+            return None
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        sizes = list(ex.map(size_of, jobs))
+    grand = have = 0
+    for (url, path), sz in zip(jobs, sizes):
+        rel = os.path.relpath(path, models_dir)
+        done = sz is not None and os.path.exists(path) and os.path.getsize(path) == sz
+        state = "已有" if done else ("部分" if os.path.exists(path + ".part") else "")
+        print(f"  {gb(sz) if sz else '   ?GB':>9}  {rel}  {state}" + (f"  <-  {url}" if a.dry_run else ""))
+        grand += sz or 0
+        have += sz if done else 0
+    print(f"  合计 {gb(grand)}，本地已完成 {gb(have)}，需下载约 {gb(grand - have)}" + ("（含大小未知的文件）" if None in sizes else ""), flush=True)
+    if a.dry_run:
+        return 0
 
     stop = threading.Event()
 
