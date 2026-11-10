@@ -8,7 +8,21 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
-COMFY_COMMIT="bd34f338ac505ea79e43968753968a464060e609"
+# COMFY_PROFILE 选择 ComfyUI 版本与对应补丁:
+#   latest (默认): ComfyUI 61e524bd (v0.44.0 之后 37 个提交, 2026-11) + 重新 rebase 的补丁
+#   legacy       : ComfyUI bd34f338 (v0.32.0, 2026-08) + 原始 Ascend-SACT 补丁 (910B 已实测)
+COMFY_PROFILE="${COMFY_PROFILE:-latest}"
+case "$COMFY_PROFILE" in
+    latest)
+        COMFY_COMMIT="61e524bdba7a4e193b45c2697f1af83c1beb86d6"
+        PATCH_FILE="$REPO_DIR/assets/patches/comfyui-61e524bd.patch"
+        ;;
+    legacy)
+        COMFY_COMMIT="bd34f338ac505ea79e43968753968a464060e609"
+        PATCH_FILE="$REPO_DIR/assets/patches/comfyui-bd34f338.patch"
+        ;;
+    *) echo "!! 未知 COMFY_PROFILE=$COMFY_PROFILE (可选 latest / legacy)"; exit 1 ;;
+esac
 PIP_MIRROR="https://pypi.tuna.tsinghua.edu.cn/simple"
 
 echo "=== [1/6] 环境检查 ==="
@@ -39,7 +53,7 @@ print(f"torch {torch.__version__} / torch_npu {torch_npu.__version__} / npu_avai
 assert torch.npu.is_available(), "torch_npu 不可用，请检查 CANN 与 torch_npu 版本配套"
 PY
 
-echo "=== [2/6] 克隆 ComfyUI (锁定 commit) ==="
+echo "=== [2/6] 克隆 ComfyUI (profile=$COMFY_PROFILE, commit=${COMFY_COMMIT:0:8}) ==="
 if [ ! -d "$COMFY_HOME/.git" ]; then
     git clone https://github.com/Comfy-Org/ComfyUI.git "$COMFY_HOME"
 fi
@@ -49,7 +63,11 @@ git checkout --detach FETCH_HEAD
 git log --oneline -1
 
 echo "=== [3/6] 应用昇腾适配补丁 ==="
-git apply --check "$REPO_DIR/assets/comfy-ui-changes.patch" && git apply "$REPO_DIR/assets/comfy-ui-changes.patch"
+if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+    echo "补丁已存在，跳过"
+else
+    git apply --check "$PATCH_FILE" && git apply "$PATCH_FILE"
+fi
 echo "补丁已应用 (来源: Ascend-SACT/MiniMax-H3-Comfy-NPU, Apache-2.0)"
 
 echo "=== [4/6] 安装 Python 依赖 ==="
@@ -57,12 +75,20 @@ echo "=== [4/6] 安装 Python 依赖 ==="
 grep -v -E 'comfyui-workflow-templates|comfyui-embedded-docs' requirements.txt > /tmp/req_core.txt
 python3 -m pip install -q -i "$PIP_MIRROR" -r /tmp/req_core.txt
 python3 -m pip install -q --no-deps -i "$PIP_MIRROR" comfyui-workflow-templates comfyui-embedded-docs
-# 关键: torchaudio 必须与 torch 同版本
 TORCH_VER=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
-python3 -m pip install -q -i "$PIP_MIRROR" "torchaudio==${TORCH_VER}" || \
-    python3 -m pip install -q --index-url https://download.pytorch.org/whl/cpu "torchaudio==${TORCH_VER}"
-# 昇腾验证版依赖
-python3 -m pip install -q -i "$PIP_MIRROR" comfy-kitchen==0.2.30 comfy-aimdo==0.4.13 imageio-ffmpeg hf_transfer
+if [ "$COMFY_PROFILE" = "legacy" ]; then
+    # 旧版 ComfyUI 强依赖 torchaudio，且必须与 torch 同版本
+    python3 -m pip install -q -i "$PIP_MIRROR" "torchaudio==${TORCH_VER}" || \
+        python3 -m pip install -q --index-url https://download.pytorch.org/whl/cpu "torchaudio==${TORCH_VER}"
+    python3 -m pip install -q -i "$PIP_MIRROR" comfy-kitchen==0.2.30 comfy-aimdo==0.4.13
+else
+    # 新版 ComfyUI 已移除 torchaudio 硬依赖 (#16457)，装不上不影响 H3
+    python3 -m pip install -q -i "$PIP_MIRROR" "torchaudio==${TORCH_VER}" 2>/dev/null || \
+        python3 -m pip install -q --index-url https://download.pytorch.org/whl/cpu "torchaudio==${TORCH_VER}" 2>/dev/null || \
+        echo "torchaudio 跳过（可选）"
+    # comfy-kitchen / comfy-aimdo 版本由 ComfyUI requirements.txt 锁定 (0.2.41 / 0.6.0)
+fi
+python3 -m pip install -q -i "$PIP_MIRROR" imageio-ffmpeg hf_transfer
 
 echo "=== [5/6] 安装验证版 Turbo 节点 ==="
 mkdir -p "$COMFY_HOME/custom_nodes"

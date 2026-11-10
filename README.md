@@ -86,6 +86,17 @@ bash scripts/start_comfyui.sh      # ③ 启动，浏览器打开 http://127.0.0
 MAX_CONN=48 FILES_PARALLEL=3 bash scripts/download_models.sh
 ```
 
+**自定义下载哪些模型**：下载列表放在 `model_lists/*.txt`（默认 `ascend.txt`），可以自己写一份清单传进去，
+格式见 [model_lists/README.md](model_lists/README.md)：
+
+```bash
+bash scripts/download_models.sh -l my_models.txt            # 用自己的清单（可多次 -l，也可 #@include ascend.txt 后追加）
+bash scripts/download_models.sh --without heretic,ref2va    # 关掉默认清单里的可选模型
+bash scripts/download_models.sh --list-tags                 # 看有哪些可选标签
+bash scripts/download_models.sh --dry-run                   # 只列出将要下载的文件
+bash scripts/download_models.sh --verify                    # 下完按 HF 的 sha256 校验
+```
+
 **前提**：昇腾环境已装 CANN ≥ 9.0.0 与 torch/torch_npu（如 CANNLab 镜像自带）。
 脚本会**自动识别 910B/910C 的卡数**（1/2/4/8）并同步到工作流配置。
 
@@ -235,13 +246,15 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 ```
 ├── setup.sh                    # 一键部署（自动适配卡数/CANN 路径）
 ├── scripts/
-│   ├── dl_models.py            # 分片并行下载（40MB/s，断点续传）
+│   ├── dl_models.py            # 通用分片并行下载器（清单驱动，断点续传，sha256 校验）
+│   ├── download_models.sh      # 下载入口（-l 指定清单 / --with / --without / --lowvram）
 │   ├── start_comfyui.sh        # 启动（自动识别卡数，内置 aarch64 修复）
 │   ├── set_npu_count.py        # 按实际卡数同步所有工作流
 │   ├── convert_wf.py           # ComfyUI 工作流 UI→API 转换
 │   ├── driver_grid.py          # 长片流水线（尾帧接首帧 + 自动拼接）
 │   ├── concat.py / 切九宫格.py  # 拼接 / 分镜切图
 │   └── ...
+├── model_lists/                # 模型下载清单（ascend.txt / nvidia.txt，格式见其 README）
 ├── workflows/                  # 10 个工作流 JSON
 ├── assets/                     # 昇腾适配补丁 + 验证版节点 + 演示图
 ├── docs/
@@ -259,9 +272,12 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 ## ⚠️ 关键注意事项
 
 1. **音频 VAE 必须 fp32** —— 用 fp16 会没声音或音画不同步
-2. **torchaudio 必须与 torch 同版本**（setup.sh 已自动处理）
+2. **torchaudio**：legacy 版必须与 torch 同版本；latest 版已不再强依赖（setup.sh 自动处理）
 3. **aarch64 需 `LD_PRELOAD=libgomp.so.1`**（启动脚本已内置）
-4. **ComfyUI 必须锁 commit** `bd34f338`（补丁基于该版本）
+4. **ComfyUI 版本与补丁成对锁定**，用 `COMFY_PROFILE` 选择：
+   - `latest`（默认）：`61e524bd`（v0.44.0+37）+ `assets/patches/comfyui-61e524bd.patch`（**CPU 单测通过，910B 待实测**）
+   - `legacy`：`bd34f338`（v0.32.0）+ `assets/patches/comfyui-bd34f338.patch`（910B 已实测）
+   - 例：`COMFY_PROFILE=legacy bash setup.sh`；INT8 路径可用 `COMFY_NPU_INT8_PATCH=0` 切到 comfy-kitchen 原生 Ascend 后端
 5. 昇腾只选 `int8_convrot` 系列权重；**NVFP4 / FP8 / SLA 稀疏注意力是 N 卡专属**。
    顺带纠正一个**跨平台**结论（2026-10-13 N 卡真机验证）：**H3 的 GGUF 文本编码器在所有平台都不可用**
    —— 所有 H3 的 GGUF 编码器仓库都缺 mmproj 视觉塔，构建不出 tokenizer（`ClipLoaderGGUF` 必崩）。

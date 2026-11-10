@@ -40,6 +40,8 @@ echo "使用 NPU: $NPU_DEVICES"
 [ -f /lib/aarch64-linux-gnu/libgomp.so.1 ] && export LD_PRELOAD=/lib/aarch64-linux-gnu/libgomp.so.1
 
 export HCCL_OP_EXPANSION_MODE="${HCCL_OP_EXPANSION_MODE:-AIV}"
+# INT8 线性层: 1 = 补丁内置 npu_quant_matmul 路径 (910B 实测)；0 = 交给 comfy-kitchen 原生 Ascend 后端
+export COMFY_NPU_INT8_PATCH="${COMFY_NPU_INT8_PATCH:-1}"
 export COMFYUI_MULTI_DEVICE_BACKEND="${COMFYUI_MULTI_DEVICE_BACKEND:-auto}"
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy || true
 

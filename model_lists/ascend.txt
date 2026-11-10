@@ -1,0 +1,21 @@
+# 昇腾 910B/910C 默认模型清单（bash scripts/download_models.sh 使用）
+# 格式见 model_lists/README.md：<来源> <目标目录> [条件标签]
+#@default full ref2va heretic
+
+# 主模型：完整版 34GB（--lowvram 关掉 full，换成 pruned 精简版 21GB）
+Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors          diffusion_models  full
+Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors   diffusion_models  pruned
+Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors  diffusion_models  ref2va
+
+# 文本编码器
+Comfy-Org/MiniMax-H3:text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors       text_encoders
+ethanfel/Qwen3-VL-32B-Ultra-Heretic-H3-ComfyUI-INT8-ConvRot:qwen3vl_32b_h3_ultra_uncensored_heretic_int8_convrot.safetensors  text_encoders  heretic
+
+# VAE
+Comfy-Org/MiniMax-H3:vae/minimax_h3_video_vae_fp16.safetensors        vae
+Comfy-Org/MiniMax-H3:vae/minimax_h3_audio_vae_fp32.safetensors        vae
+Comfy-Org/MiniMax-H3:vae/minimax_h3_video_vae_int8_convrot.safetensors vae
+
+# Turbo LoRA
+Comfy-Org/MiniMax-H3:loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors loras
+Comfy-Org/MiniMax-H3:loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors      loras

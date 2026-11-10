@@ -1,0 +1,40 @@
+name: patch-check
+# 每天检查补丁能否干净应用到 ComfyUI 最新 master / 最新 tag，提前发现上游冲突
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+  push:
+    paths: ["assets/patches/**", ".github/workflows/patch-check.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [pinned, latest-tag, master]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch ComfyUI
+        run: |
+          git clone --filter=blob:none https://github.com/Comfy-Org/ComfyUI.git comfy
+          cd comfy
+          case "${{ matrix.target }}" in
+            pinned)     ref=61e524bdba7a4e193b45c2697f1af83c1beb86d6 ;;
+            latest-tag) ref=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1) ;;
+            master)     ref=origin/master ;;
+          esac
+          git checkout -q --detach "$ref"
+          echo "ComfyUI: $ref -> $(git rev-parse --short HEAD)"
+      - name: git apply --check
+        run: |
+          cd comfy
+          if git apply --check ../assets/patches/comfyui-61e524bd.patch; then
+            echo "✅ clean apply"
+          else
+            echo "::warning::patch no longer applies cleanly; trying 3-way"
+            git apply --3way ../assets/patches/comfyui-61e524bd.patch || true
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
