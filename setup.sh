@@ -2,19 +2,23 @@
 # =============================================================
 # MiniMax-H3 on Ascend 一键部署脚本
 # 适用: CANNLab / 昇腾 910B / 910C 容器与环境
-# 用法: bash setup.sh [--gh-proxy URL] [--profile latest|legacy]
+# 用法: bash setup.sh [--gh-proxy URL] [--profile latest|legacy] [--nodes LIST]
 #   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
 #                   拉取时用 URL/https://github.com/...；也可用环境变量 GH_PROXY
+#   --nodes LIST    顺带安装额外自定义节点（逗号分隔，也可用环境变量 CUSTOM_NODES），如
+#                   qwen21 / qwen21-full / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
 # =============================================================
 set -euo pipefail
 
-usage() { sed -n '3,7p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
     case "$1" in
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
         --profile)    COMFY_PROFILE="${2:?--profile 需要 latest 或 legacy}"; shift 2 ;;
         --profile=*)  COMFY_PROFILE="${1#*=}"; shift ;;
+        --nodes)      CUSTOM_NODES="${2:?--nodes 需要节点列表}"; shift 2 ;;
+        --nodes=*)    CUSTOM_NODES="${1#*=}"; shift ;;
         -h|--help)    usage; exit 0 ;;
         *) echo "!! 未知参数: $1"; usage; exit 1 ;;
     esac
@@ -257,6 +261,13 @@ mkdir -p "$COMFY_HOME/user/default/workflows/minimax-h3"
 cp "$REPO_DIR"/workflows/*.json "$COMFY_HOME/user/default/workflows/minimax-h3/"
 # i2v 工作流需要的图占位
 mkdir -p "$COMFY_HOME/input"
+
+if [ -n "${CUSTOM_NODES:-}" ]; then
+    echo "=== [+] 安装额外自定义节点: $CUSTOM_NODES ==="
+    COMFY_HOME="$COMFY_HOME" PIP_MIRROR="$PIP_MIRROR" GH_PROXY="$GH_PROXY" \
+        bash "$REPO_DIR/scripts/install_nodes.sh" "$CUSTOM_NODES" || \
+        echo "!! 部分自定义节点没装好（见上方输出），不影响 MiniMax-H3；可稍后单独重跑: bash scripts/install_nodes.sh $CUSTOM_NODES"
+fi
 
 cat <<EOF
 

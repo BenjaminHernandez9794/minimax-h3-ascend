@@ -5,6 +5,7 @@
 
 ## 2026-11-10
 
+- 新增 `scripts/install_nodes.sh` 与 `setup.sh --nodes LIST`（或 `CUSTOM_NODES`）：安装额外自定义节点（goohai、rgthree、layerstyle、easyuse、comfyroll，别名 `qwen21` / `qwen21-full`，也可填 GitHub 地址）。走 `--gh-proxy`；已存在则 `git pull --ff-only`；依赖安装时锁住 torch/torch_npu/torchvision/numpy，跳过 torch 系列、opencv 与 dlib；opencv 统一为 contrib，import 失败时换 headless。
 - 新增 `model_lists/qwen_image_2.1_turbo.txt`：Qwen-Image 2.1 Turbo 9 步整合工作流（编辑/扩图/移除/重绘/文生图）的模型清单，默认约 17.8GB，可选标签 `pe`、`bfs`、`pe_gguf`。
 - dl_models.py：清单里的来源和目标支持 `%20` 等 URL 转义（文件名带空格时用），本地按解码后的名字保存。
 - setup.sh：pip 约束文件不再锁 torchaudio（已装的不匹配版本会让 `torchaudio==<torch 版本>` 无解，910B 实测 torchaudio 2.11.0+cpu 配 torch 2.7.1 报 ResolutionImpossible）；latest 档检测到版本不匹配时只提示、不改动（新版 ComfyUI 不使用 torchaudio）。
