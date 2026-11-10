@@ -52,8 +52,24 @@ fi
 export ASCEND_RT_VISIBLE_DEVICES="$NPU_DEVICES"
 echo "使用 NPU: $NPU_DEVICES"
 
-# --- aarch64 关键修复：预先加载 libgomp，避免 torchaudio TLS 报错 ---
-[ -f /lib/aarch64-linux-gnu/libgomp.so.1 ] && export LD_PRELOAD=/lib/aarch64-linux-gnu/libgomp.so.1
+# --- aarch64 关键修复：预加载原生库，避免“静态 TLS 块耗尽”报错 ---
+#   libGLdispatch: opencv(cv2) 在 torch_npu 之后再 import 时会报
+#     "libGLdispatch.so.0: cannot allocate memory in static TLS block"
+#     ——因为 torch_npu 等先加载占满了静态 TLS，cv2 的 libGLdispatch 再 dlopen 就没槽了。
+#     连带弄挂所有 import cv2 的节点：ComfyUI_LayerStyle、ComfyUI-Easy-Use，
+#     以及孤海里 GH_MaskCropV2 / GH_CropRestore / TextEncodeQwenImage21GH 等节点。
+#   libgomp: torchaudio/numpy 的同类 TLS 报错。
+#   预加载让它们在进程启动时（静态 TLS 还够）就拿到槽位。GLdispatch 放最前。
+PRELOAD="${LD_PRELOAD:-}"
+for _name in libGLdispatch.so.0 libgomp.so.1; do
+    for _dir in /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu /lib /usr/lib; do
+        if [ -f "$_dir/$_name" ]; then
+            PRELOAD="${PRELOAD:+$PRELOAD:}$_dir/$_name"
+            break
+        fi
+    done
+done
+[ -n "$PRELOAD" ] && export LD_PRELOAD="$PRELOAD"
 
 export HCCL_OP_EXPANSION_MODE="${HCCL_OP_EXPANSION_MODE:-AIV}"
 # INT8 线性层: 1 = 补丁内置 npu_quant_matmul 路径 (910B 实测)；0 = 交给 comfy-kitchen 原生 Ascend 后端

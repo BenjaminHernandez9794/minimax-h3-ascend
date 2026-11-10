@@ -235,15 +235,19 @@ if [ "$COMFY_PROFILE" = "legacy" ]; then
     "${PIP[@]}" -c "$PIP_CONSTRAINTS" comfy-kitchen==0.2.30 comfy-aimdo==0.4.13
 else
     # 新版 ComfyUI 已移除 torchaudio 硬依赖 (#16457)，装不上不影响 H3；只试国内源，不再回退到 download.pytorch.org（国内常年超时）
+    # 注意：torchaudio 必须与 torch 同 ABI，否则一 import 就崩（undefined symbol: torch_library_impl）。
+    # transformers 只按“包是否存在”决定要不要 import torchaudio，所以一个装着但崩的 torchaudio 会
+    # 静默弄挂所有 import transformers 的自定义节点（LayerStyle 等）。这里以“能否真正 import”为准，崩的直接卸掉。
     TA_VER=$(python3 -m pip list --format=freeze 2>/dev/null | grep -i '^torchaudio==' | cut -d= -f3 | cut -d+ -f1)
     if [ -z "$TA_VER" ]; then
         "${PIP[@]}" -c "$PIP_CONSTRAINTS" "torchaudio==${TORCH_VER}" || echo "torchaudio 跳过（可选，ComfyUI 与 H3 都不需要）"
-    elif [ "$TA_VER" = "$TORCH_VER" ]; then
-        echo "torchaudio ${TA_VER} 已安装，跳过"
+    elif python3 -c "import torchaudio" >/dev/null 2>&1; then
+        echo "torchaudio ${TA_VER} 已安装且可正常 import，保留"
     else
-        # 不自动卸载/替换（可能是别的项目装的）；ComfyUI 新版不 import torchaudio，不影响出片
-        echo "提示: 已装 torchaudio ${TA_VER} 与 torch ${TORCH_VER} 不匹配（import 会失败）。ComfyUI 不需要它，可忽略；"
-        echo "      如其他插件要用，可执行: pip uninstall -y torchaudio && pip install torchaudio==${TORCH_VER}"
+        # 装着但 import 崩（通常是与 torch ${TORCH_VER} ABI 不匹配）。ComfyUI/H3 及工作流节点都不需要音频，
+        # 直接卸载，让 transformers 当它不存在、跳过音频分支，避免连带弄挂 LayerStyle 等依赖 transformers 的节点。
+        echo "检测到 torchaudio ${TA_VER} 无法 import（与 torch ${TORCH_VER} ABI 不匹配），自动卸载以免弄挂依赖 transformers 的节点"
+        python3 -m pip uninstall -y torchaudio || echo "torchaudio 卸载失败，可手动执行: pip uninstall -y torchaudio"
     fi
     # comfy-kitchen / comfy-aimdo 版本由 ComfyUI requirements.txt 锁定 (0.2.41 / 0.6.0)
 fi
