@@ -1,54 +1,5 @@
-From 77f1f89b63db4cf5cce0d302e39db49f277f17da Mon Sep 17 00:00:00 2001
-From: h <a@b>
-Date: Tue, 10 Nov 2026 03:21:18 +0000
-Subject: [PATCH] Ascend NPU support for MiniMax-H3 (rebased onto ComfyUI
- 61e524bd, v0.44.0+37)
-
-Rebased Ascend-SACT/MiniMax-H3-Comfy-NPU patch from bd34f338 (v0.32.0).
-- resolve conflicts with Linear refactor, CombinedLinear/fused MLP, prefetch queue, H3 VAE refactor
-- llama: tensor-parallel path kept beside fused gate_up/qkv; TP resize also shards kv_size
-- ops: legacy NPU INT8 glue defers to comfy-kitchen's native Ascend backend when present
-  (force legacy with COMFY_NPU_INT8_PATCH=1)
-- tests: use tuple form for 'set' patches; init params in LTX SP test
----
- comfy/checkpoint_source.py             |  40 +++
- comfy/ldm/lightricks/av_model.py       |  76 ++++-
- comfy/ldm/lightricks/model.py          |  67 ++++-
- comfy/ldm/minimax/model.py             |  42 ++-
- comfy/ldm/minimax/vae.py               |  71 +++--
- comfy/model_management.py              | 165 ++++++++++-
- comfy/model_patcher.py                 |  86 +++++-
- comfy/multidevice.py                   | 177 +++++++++++
- comfy/multigpu.py                      | 395 ++++++++++++++++++++++++-
- comfy/multinpu.py                      |  95 ++++++
- comfy/ops.py                           | 206 ++++++++++++-
- comfy/patcher_extension.py             |   9 +-
- comfy/prompt_history.py                |  64 ++++
- comfy/samplers.py                      | 171 +++++++----
- comfy/sd.py                            | 167 ++++++++++-
- comfy/text_encoders/llama.py           |  29 +-
- comfy/text_encoders/minimax.py         | 302 +++++++++++++++++++
- comfy/utils.py                         |  18 +-
- comfy/weight_adapter/bypass.py         |  15 +-
- comfy_extras/nodes_minimax_h3.py       | 143 ++++++++-
- comfy_extras/nodes_multigpu.py         | 196 ++++++++++++
- execution.py                           |  24 +-
- nodes.py                               |   6 +-
- tests/test_checkpoint_source.py        | 392 ++++++++++++++++++++++++
- tests/test_minimax_tp_loading.py       |  68 +++++
- tests/test_multidevice_coordinators.py | 188 ++++++++++++
- tests/test_npu_quant_ops.py            | 110 +++++++
- tests/test_prompt_history.py           |  47 +++
- 28 files changed, 3169 insertions(+), 200 deletions(-)
- create mode 100644 comfy/checkpoint_source.py
- create mode 100644 comfy/multidevice.py
- create mode 100644 comfy/multinpu.py
- create mode 100644 comfy/prompt_history.py
- create mode 100644 tests/test_checkpoint_source.py
- create mode 100644 tests/test_minimax_tp_loading.py
- create mode 100644 tests/test_multidevice_coordinators.py
- create mode 100644 tests/test_npu_quant_ops.py
- create mode 100644 tests/test_prompt_history.py
+# Ascend NPU support for MiniMax-H3 on ComfyUI 61e524bd (v0.44.0+37)
+# Generated: git diff 61e524bd ascend-npu-v0.44 (d7a39826) from BenjaminHernandez9794/ComfyUI-npu
 
 diff --git a/comfy/checkpoint_source.py b/comfy/checkpoint_source.py
 new file mode 100644
@@ -1803,10 +1754,22 @@ index 00000000..7759610b
 +            _hccl_communicators[key] = communicator
 +        return communicator
 diff --git a/comfy/ops.py b/comfy/ops.py
-index 9623fe65..808161a9 100644
+index 9623fe65..9b76ca76 100644
 --- a/comfy/ops.py
 +++ b/comfy/ops.py
-@@ -1040,6 +1040,7 @@ from .quant_ops import (
+@@ -774,6 +774,11 @@ class disable_weight_init:
+             return None
+ 
+         def cast_weight(self, input):
++            # torch_npu 给 nn.Module 打了同名方法 cast_weight(device)，Module.to()/npu() 会以 device 调用它；
++            # 这里按参数类型分流，避免 'torch.device' object has no attribute 'dtype'
++            if input is None or isinstance(input, (torch.device, str, int)):
++                npu_cast_weight = getattr(torch.nn.Module, "cast_weight", None)
++                return npu_cast_weight(self, input) if npu_cast_weight is not None else None
+             return CastBiasWeightContext(self if self.weight is not None else None, input, offloadable=True)
+ 
+         def forward_comfy_cast_weights(self, input):
+@@ -1040,6 +1045,7 @@ from .quant_ops import (
      QuantizedTensor,
      QUANT_ALGOS,
      TensorCoreFP8Layout,
@@ -1814,7 +1777,7 @@ index 9623fe65..808161a9 100644
      get_layout_class,
  )
  
-@@ -1073,6 +1074,169 @@ def _input_act_weight(x, input_act, act_weight, act_eps):
+@@ -1073,6 +1079,169 @@ def _input_act_weight(x, input_act, act_weight, act_eps):
          yield act_weight, act_eps
  
  
@@ -1984,7 +1947,7 @@ index 9623fe65..808161a9 100644
  def _eager_input_act(x, input_act, act_weight=None, act_eps=0.0):
      if input_act is None:
          return x
-@@ -1097,6 +1261,11 @@ def _try_quantized_linear_input_act(x, weight, bias, input_act, act_weight, act_
+@@ -1097,6 +1266,11 @@ def _try_quantized_linear_input_act(x, weight, bias, input_act, act_weight, act_
                                     residual, residual_scale):
      if comfy.model_management.in_training or not isinstance(weight, QuantizedTensor):
          return NotImplemented
@@ -1996,7 +1959,7 @@ index 9623fe65..808161a9 100644
      with _input_act_weight(x, input_act, act_weight, act_eps) as (act_weight, act_eps):
          return weight.linear_input_act(
              x, bias, input_act=input_act, input_act_weight=act_weight, input_act_eps=act_eps,
-@@ -1321,6 +1490,7 @@ class QuantLinearFunc(torch.autograd.Function):
+@@ -1321,6 +1495,7 @@ class QuantLinearFunc(torch.autograd.Function):
  
  # Quantized-weight module helpers
  
@@ -2004,7 +1967,7 @@ index 9623fe65..808161a9 100644
  def _quantized_apply(module, fn, recurse=True):
      """Re-wrap Parameters after fn so .to()/.cuda() propagate through QuantizedTensor weights."""
      if recurse:
-@@ -1330,9 +1500,7 @@ def _quantized_apply(module, fn, recurse=True):
+@@ -1330,9 +1505,7 @@ def _quantized_apply(module, fn, recurse=True):
          if param is None:
              continue
          p = fn(param)
@@ -2015,7 +1978,7 @@ index 9623fe65..808161a9 100644
      for key, buf in module._buffers.items():
          if buf is not None:
              module._buffers[key] = fn(buf)
-@@ -1348,7 +1516,8 @@ def _load_quantized_module(module, super_load, state_dict, prefix, local_metadat
+@@ -1348,7 +1521,8 @@ def _load_quantized_module(module, super_load, state_dict, prefix, local_metadat
      consumed keys from missing_keys. Reads compute_dtype from factory_kwargs
      and disabled formats from module._disabled_formats.
      """
@@ -2025,7 +1988,7 @@ index 9623fe65..808161a9 100644
      compute_dtype = module.factory_kwargs["dtype"]
      disabled_formats = module._disabled_formats
      layer_name = prefix.rstrip('.')
-@@ -1359,6 +1528,11 @@ def _load_quantized_module(module, super_load, state_dict, prefix, local_metadat
+@@ -1359,6 +1533,11 @@ def _load_quantized_module(module, super_load, state_dict, prefix, local_metadat
          module.weight = None
          return
      manually_loaded_keys = [f"{prefix}weight"]
@@ -2037,7 +2000,7 @@ index 9623fe65..808161a9 100644
  
      def pop_scale(name, dtype=None):
          key = f"{prefix}{name}"
-@@ -1476,7 +1650,7 @@ def _load_quantized_module(module, super_load, state_dict, prefix, local_metadat
+@@ -1476,7 +1655,7 @@ def _load_quantized_module(module, super_load, state_dict, prefix, local_metadat
                  _v = state_dict.pop(param_key, None)
                  if _v is None:
                      continue
@@ -2046,7 +2009,7 @@ index 9623fe65..808161a9 100644
                  manually_loaded_keys.append(param_key)
  
      super_load(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-@@ -1577,6 +1751,9 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
+@@ -1577,6 +1756,9 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
                  return _quantized_weight_state_dict(self, sd, prefix, extra_quant_params=("input_scale", "pre_quant_scale"))
  
              def _forward(self, input, weight, bias):
@@ -2056,7 +2019,7 @@ index 9623fe65..808161a9 100644
                  return torch.nn.functional.linear(input, weight, bias)
  
              def forward_comfy_cast_weights(
-@@ -1632,6 +1809,23 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
+@@ -1632,6 +1814,23 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
                  )
                  quantize_input = QUANT_ALGOS.get(getattr(self, 'quant_format', None), {}).get("quantize_input", True)
  
@@ -2080,7 +2043,7 @@ index 9623fe65..808161a9 100644
                  # Training path: quantized forward with compute_dtype backward via autograd function
                  if (input.requires_grad and _use_quantized and quantize_input):
                      with CastBiasWeightContext(
-@@ -1693,7 +1887,7 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
+@@ -1693,7 +1892,7 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
                      return weight
  
                  assert inplace_update is False  # TODO: eventually remove the inplace_update stuff
@@ -2113,10 +2076,10 @@ index 189ee84c..57766416 100644
      new_dict = input_dict.copy()
 diff --git a/comfy/prompt_history.py b/comfy/prompt_history.py
 new file mode 100644
-index 00000000..c7946add
+index 00000000..a5ce64af
 --- /dev/null
 +++ b/comfy/prompt_history.py
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,74 @@
 +from __future__ import annotations
 +
 +import json
@@ -2159,14 +2122,24 @@ index 00000000..c7946add
 +
 +    def save(self, prompt_id: str, history_item: dict) -> None:
 +        payload = json.dumps(history_item, ensure_ascii=False, separators=(",", ":"))
-+        self._connection.execute(
-+            """
-+            INSERT INTO prompt_history (prompt_id, payload)
-+            VALUES (?, ?)
-+            ON CONFLICT(prompt_id) DO UPDATE SET payload = excluded.payload
-+            """,
-+            (prompt_id, payload),
-+        )
++        if sqlite3.sqlite_version_info >= (3, 24, 0):
++            self._connection.execute(
++                """
++                INSERT INTO prompt_history (prompt_id, payload)
++                VALUES (?, ?)
++                ON CONFLICT(prompt_id) DO UPDATE SET payload = excluded.payload
++                """,
++                (prompt_id, payload),
++            )
++        else:
++            # SQLite < 3.24 (e.g. some CANN/buildtools Python builds) has no UPSERT syntax
++            cur = self._connection.execute(
++                "UPDATE prompt_history SET payload = ? WHERE prompt_id = ?", (payload, prompt_id)
++            )
++            if cur.rowcount == 0:
++                self._connection.execute(
++                    "INSERT INTO prompt_history (prompt_id, payload) VALUES (?, ?)", (prompt_id, payload)
++                )
 +        self._connection.commit()
 +
 +    def delete(self, prompt_id: str) -> None:
@@ -4600,6 +4573,3 @@ index 00000000..325e9d88
 +
 +if __name__ == "__main__":
 +    unittest.main()
--- 
-2.47.3
-
