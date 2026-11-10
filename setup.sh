@@ -216,7 +216,8 @@ fi
 # 锁住预装的 torch / torch_npu 等，防止 requirements 里的 torch、torchvision、spandrel、kornia 把 torch 升级掉
 # （升级既要下载数 GB 的轮子，也会破坏 torch_npu 配套）
 PIP_CONSTRAINTS=/tmp/minimax_h3_constraints.txt
-python3 -m pip list --format=freeze 2>/dev/null | grep -i -E '^(torch|torch[-_]npu|torchvision|torchaudio)==' > "$PIP_CONSTRAINTS" || true
+# torchaudio 不锁：它必须跟 torch 同版本，锁住一个不匹配的旧装版本会让后面的 torchaudio==<torch 版本> 无解
+python3 -m pip list --format=freeze 2>/dev/null | grep -i -E '^(torch|torch[-_]npu|torchvision)==' > "$PIP_CONSTRAINTS" || true
 echo "锁定已安装版本: $(tr '\n' ' ' < "$PIP_CONSTRAINTS")"
 # ComfyUI 核心依赖（跳过需要 py3.12 的模板包）
 grep -v -E 'comfyui-workflow-templates|comfyui-embedded-docs' requirements.txt > /tmp/req_core.txt
@@ -230,10 +231,15 @@ if [ "$COMFY_PROFILE" = "legacy" ]; then
     "${PIP[@]}" -c "$PIP_CONSTRAINTS" comfy-kitchen==0.2.30 comfy-aimdo==0.4.13
 else
     # 新版 ComfyUI 已移除 torchaudio 硬依赖 (#16457)，装不上不影响 H3；只试国内源，不再回退到 download.pytorch.org（国内常年超时）
-    if python3 -c "import torchaudio" 2>/dev/null; then
-        echo "torchaudio 已安装，跳过"
+    TA_VER=$(python3 -m pip list --format=freeze 2>/dev/null | grep -i '^torchaudio==' | cut -d= -f3 | cut -d+ -f1)
+    if [ -z "$TA_VER" ]; then
+        "${PIP[@]}" -c "$PIP_CONSTRAINTS" "torchaudio==${TORCH_VER}" || echo "torchaudio 跳过（可选，ComfyUI 与 H3 都不需要）"
+    elif [ "$TA_VER" = "$TORCH_VER" ]; then
+        echo "torchaudio ${TA_VER} 已安装，跳过"
     else
-        "${PIP[@]}" -c "$PIP_CONSTRAINTS" "torchaudio==${TORCH_VER}" || echo "torchaudio 跳过（可选）"
+        # 不自动卸载/替换（可能是别的项目装的）；ComfyUI 新版不 import torchaudio，不影响出片
+        echo "提示: 已装 torchaudio ${TA_VER} 与 torch ${TORCH_VER} 不匹配（import 会失败）。ComfyUI 不需要它，可忽略；"
+        echo "      如其他插件要用，可执行: pip uninstall -y torchaudio && pip install torchaudio==${TORCH_VER}"
     fi
     # comfy-kitchen / comfy-aimdo 版本由 ComfyUI requirements.txt 锁定 (0.2.41 / 0.6.0)
 fi
