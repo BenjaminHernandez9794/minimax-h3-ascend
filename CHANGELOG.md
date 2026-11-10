@@ -5,6 +5,7 @@
 
 ## 2026-11-10
 
+- **setup.sh 自动切到 NPU 适配分支**：latest → `ascend-npu-v0.44`，legacy → `ascend-npu-v0.32`（新建，= bd34f338 + 原版补丁），`COMFY_BRANCH` 可覆盖；仓库没有该分支时退回 commit + 补丁（`COMFY_USE_PATCH=1` 可强制）。首次获取改为浅拉取分支，不再完整 clone；已有工作区改动会先 stash。补丁打不上时直接报错退出。
 - **setup.sh 改从 fork 拉 ComfyUI**：默认 `https://github.com/BenjaminHernandez9794/ComfyUI-npu.git`，可用 `COMFY_REPO` 覆盖；已有的 ComfyUI 目录会把 origin 改指向该地址。
 - **模型下载器通用化**：`scripts/dl_models.py` 改为按清单文件下载，默认清单 `model_lists/ascend.txt` / `nvidia.txt`。
   `download_models.sh -l <清单>` 可指定自己的列表（支持多个、`#@include`、`@revision`、任意 https 直链、目标改名），
