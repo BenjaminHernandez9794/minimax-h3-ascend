@@ -27,6 +27,7 @@ import argparse
 import hashlib
 import json
 import os
+from urllib.parse import unquote
 import sys
 import threading
 import time
@@ -103,18 +104,20 @@ def parse_list(path, seen=None):
 def build_url(src, endpoint):
     """repo:path[@rev] → HF resolve URL；http(s) 原样返回。"""
     if src.startswith(("http://", "https://")):
-        return src, os.path.basename(src.split("?", 1)[0])
+        return src, unquote(os.path.basename(src.split("?", 1)[0]))
     if ":" not in src:
         sys.exit(f"[错误] 来源格式应为 <repo>:<仓库内路径>[@revision] 或完整 URL: {src}")
     repo, rpath = src.split(":", 1)
     rev = "main"
     if "@" in rpath:
         rpath, rev = rpath.rsplit("@", 1)
-    return f"{endpoint.rstrip('/')}/{repo}/resolve/{rev}/{rpath}", os.path.basename(rpath)
+    # 路径里的空格写成 %20（清单按空白分列）；本地文件名按解码后的名字保存
+    return f"{endpoint.rstrip('/')}/{repo}/resolve/{rev}/{rpath}", unquote(os.path.basename(rpath))
 
 
 def local_path(models_dir, dest, fname):
-    # dest 以 / 结尾或最后一段不含 "." → 目录；否则视为完整文件路径（可改名）
+    # dest 以 / 结尾或最后一段不含 "." → 目录；否则视为完整文件路径（可改名）。%20 等转义会被解码
+    dest = unquote(dest)
     if dest.endswith("/") or "." not in os.path.basename(dest):
         p = os.path.join(dest, fname)
     else:
