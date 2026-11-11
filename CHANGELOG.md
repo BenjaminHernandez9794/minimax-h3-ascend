@@ -5,6 +5,9 @@
 
 ## 2026-11-11
 
+- `scripts/dl_models.py` 支持 Civitai：清单来源写 `civitai:<modelVersionId>@<fileId>`，用 `CIVITAI_TOKEN` 鉴权（只在请求时拼到链接上，不打印），`CIVITAI_ENDPOINT` 可换镜像域名。Civitai 不允许 HEAD，改用 `GET Range: bytes=0-0` 探测大小，仍是分片并行 + 断点续传；没 token 时 dry-run 用公开 API 显示大小。顺带：`HF_TOKEN` 现在只发给 HF 源，不再随请求发到其它站点。
+- `model_lists/moss_image.txt` 加入 7 个 Moss 特调模型（Civitai，均 INT8，按整合包文件名落到 `diffusion_models/Moss_image/`）：标签 `dirty`、`pornmaster`、`qizhen`（绮真）、`artius`（+`artius_te` 配套文本编码器/VAE）、`imagine`、`miaomiao`；`mix` 改为工作流原版 Moody-Moss-Mix V1 25STEPS CFG3（之前是 HF 上的 V4.1 近似替代）。各模型推荐采样器/CFG/步数写在清单注释里。
+
 - 新增 `model_lists/moss_image.txt`：MOSS-Image 生图整合工作流的模型清单。默认约 15.4GB（工作流默认启用的一组：SFT INT8 主模型 + Qwen3.5-9B INT8 文本编码器 + flux2 小 VAE），可选标签 `vaefull`、`base`、`bf16`、`w4a8`、`turbo8`（8 步蒸馏 LoRA）、`mix`（Moody-Moss-Mix 风格混合）、`seedvr2`（SeedVR2 7B 超分）。11 个链接已 dry-run + HEAD 验证。源：Comfy-Org/MOSS-Image、lodestones/MOSS-Image-SFT-8-steps-dmd、catlover1937/moody-moss-mix、Comfy-Org/SeedVR2。
 - `scripts/install_nodes.sh`：新增 `seedvr2` 节点与 `moss`（rgthree+easyuse）、`moss-full`（+seedvr2）别名。注：工作流默认启用的 `ResolutionSelector` 节点来源待确认需手动装；`TE-Speed-MOSS`（TESpeedMoss 加速节点）仅 Windows x64 + Py3.13、以 nodes.pyd 发布，昇腾/aarch64 无法加载，好在工作流里默认旁路，不影响出图。
 

@@ -14,8 +14,22 @@
 #   bf16      SFT 主模型 bf16（更高画质、更吃显存）                                               约 10.2GB
 #   w4a8      Qwen3.5-9B w4a8 gptq 文本编码器（旁路组的低显存可选）                                约 7.34GB
 #   turbo8    MOSS-Image-SFT 8 步蒸馏 LoRA（旁路的加速组，LoraLoaderModelOnly 用）                约 1.19GB
-#   mix       Moody-Moss-Mix 风格混合主模型 INT8（旁路组）                                        约 5.09GB
+#   mix       Moody-Moss-Mix V1 25步/CFG3 INT8（工作流里的 moodyMossMix_v2025STEPSCFG3，Civitai）    约 5.09GB
 #   seedvr2   SeedVR2 7B 超分（UNET + VAE，旁路的放大组）                                         约 8.83GB
+#
+# Moss 特调模型（Civitai，均为 INT8，放 diffusion_models/Moss_image/，文件名按整合包命名）:
+#   dirty      Dirty MOSS：自然随拍写实           er_sde + simple  CFG 3  25 步          约 5.41GB
+#   pornmaster PornMaster MOSS SFT V1（NSFW）     euler/er_sde + simple  CFG 3  25-50 步 约 5.41GB
+#   qizhen     绮真 Refined Realism：写实人像     euler/er_sde + simple  CFG 1  8/15 步  约 5.41GB
+#   artius     Artius MOSS（内置加速）            euler/er_sde + simple  CFG 1  8/10 步  约 7.49GB
+#   artius_te  Artius 配套 Qwen3.5-9B heretic v2 w4a8 文本编码器 + 专用 VAE（可选）            约 7.11GB
+#   imagine    MOSS-Imagine：电影感/多题材         euler/er_sde + simple  CFG 3  25-50 步 约 5.41GB
+#   miaomiao   喵喵后宫 MOSS（二次元，Base 系）   euler/er_sde + simple  CFG 3  25-50 步 约 5.41GB
+#   全部特调: --with mix,dirty,pornmaster,qizhen,artius,imagine,miaomiao   （约 39.6GB）
+#
+# Civitai 下载需要 API Key（civitai.com → 用户设置 → API Keys）:
+#   export CIVITAI_TOKEN=xxxx
+#   国内访问不了 civitai.com 时可换镜像域名: export CIVITAI_ENDPOINT=https://civitai.red
 #
 # 子目录与工作流一致（主模型/LoRA 在 Moss_image\ 下）。工作流是在 Windows 上保存的，路径里是反斜杠，
 # Linux 上加载后需在 UNETLoader / LoraLoaderModelOnly / VAELoader / CLIPLoader 里重新选一次同名文件。
@@ -53,8 +67,16 @@ Comfy-Org/MOSS-Image:text_encoders/qwen3.5_9b_w4a8_gptq.safetensors             
 # ---- 8 步蒸馏 LoRA（加速组，工作流里重命名）----
 lodestones/MOSS-Image-SFT-8-steps-dmd:lora.safetensors   loras/Moss_image/MOSS-Image-SFT-8-steps.safetensors   turbo8
 
-# ---- Moody-Moss-Mix 风格混合主模型（工作流命名为 v2025STEPSCFG3，HF 上最接近为 V4.1）----
-catlover1937/moody-moss-mix:Moody-Moss-Mix-V4.1_00001__clean-int8_convrot.safetensors   diffusion_models/Moss_image/Moss-moodyMossMix_v2025STEPSCFG3_int8_convrot.safetensors   mix
+# ---- Moss 特调模型（Civitai；来源写法 civitai:<modelVersionId>@<fileId>）----
+civitai:3414956@3307706   diffusion_models/Moss_image/Moss-moodyMossMix_v2025STEPSCFG3_int8_convrot.safetensors   mix
+civitai:3423156@3317587   diffusion_models/Moss_image/Moss-dirtyMoss_int8_convrot.safetensors                    dirty
+civitai:3413227@3305738   diffusion_models/Moss_image/Moss-大师pornmasterMoss_v1_int8_convrot.safetensors        pornmaster
+civitai:3420502@3314460   diffusion_models/Moss_image/Moss-绮真mossRefinedRealism_v10_int8.safetensors            qizhen
+civitai:3416029@3309287   diffusion_models/Moss_image/Moss-artiusMoss_v10_int8.safetensors                       artius
+civitai:3416029@3313824   text_encoders/qwen3.5_9b_heretic_v2_w4a8.safetensors                                    artius_te
+civitai:3416029@3311372   vae/moss_image_vae.safetensors                                                           artius_te
+civitai:3417204@3312827   diffusion_models/Moss_image/Moss-mossImagine_int8_convrot.safetensors                  imagine
+civitai:3422319@3316568   diffusion_models/Moss_image/Moss-动漫miaomiaoHaremMOSS_baseV10_int8.safetensors         miaomiao
 
 # ---- SeedVR2 超分（放大组）----
 Comfy-Org/SeedVR2:diffusion_models/seedvr2_7b_int8_convrot.safetensors   diffusion_models   seedvr2
