@@ -1,7 +1,7 @@
 import subprocess, sys, os, glob
 
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-i",
-                "https://pypi.tuna.tsinghua.edu.cn/simple", "imageio-ffmpeg"], check=False)
+                "https://repo.huaweicloud.com/repository/pypi/simple", "imageio-ffmpeg"], check=False)
 try:
     import imageio_ffmpeg
     exe = imageio_ffmpeg.get_ffmpeg_exe()

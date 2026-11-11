@@ -7,7 +7,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT="$(dirname "$REPO_DIR")"
 COMFY_HOME="${1:-${COMFY_HOME:-$HOME/ComfyUI}}"
 COMFY_COMMIT="bd34f338ac505ea79e43968753968a464060e609"
-PIP_MIRROR="https://pypi.tuna.tsinghua.edu.cn/simple"
+PIP_MIRROR="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
 
 echo "=== [1/4] 环境检查 ==="
 python3 - <<'PY'

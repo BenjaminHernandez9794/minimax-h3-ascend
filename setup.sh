@@ -66,7 +66,7 @@ COMFY_REPO="${COMFY_REPO:-https://github.com/BenjaminHernandez9794/ComfyUI-npu.g
 # 若仓库里没有该分支（例如 COMFY_REPO 指向官方），自动退回「固定 commit + 打补丁」；也可用 COMFY_USE_PATCH=1 强制走补丁。
 COMFY_BRANCH="${COMFY_BRANCH:-$DEFAULT_BRANCH}"
 COMFY_USE_PATCH="${COMFY_USE_PATCH:-0}"
-PIP_MIRROR="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+PIP_MIRROR="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
 # 实际拉取地址：设置了 GH_PROXY 且仓库在 github.com 时走代理
 COMFY_FETCH_URL="$COMFY_REPO"
 if [ -n "$GH_PROXY" ] && [[ "$COMFY_REPO" == https://github.com/* ]]; then
@@ -159,7 +159,7 @@ python3 -c "import torch" >/dev/null 2>&1 && HAVE_TORCH=1
 [ "$HAVE_TORCH" = 1 ] && python3 -c "import torch, torch_npu" >/dev/null 2>&1 && HAVE_NPU=1
 if [ "$HAVE_NPU" = 0 ]; then
     CANN_VER=$(cann_version)
-    PIP_MIRROR_BOOT="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+    PIP_MIRROR_BOOT="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
     if [ "$HAVE_TORCH" = 1 ]; then
         TV=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
         echo "检测到 torch $TV 但没有 torch_npu（CANN $CANN_VER），自动安装配套 torch_npu"

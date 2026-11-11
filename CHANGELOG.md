@@ -5,6 +5,8 @@
 
 ## 2026-11-11
 
+- 默认 pip 镜像从清华 TUNA 换成华为云（`https://repo.huaweicloud.com/repository/pypi/simple`）：`setup.sh`、`scripts/install_nodes.sh`、`scripts/setup_nvidia.sh` 及几个小脚本统一改。`PIP_MIRROR=<地址>` 仍可覆盖（`setup_nvidia.sh` 现在也支持）。华为云上 torch 2.7.1、torch_npu 2.7.1.post2～post11（aarch64 / py3.11）都在。
+
 - `setup.sh`：没有 torch / torch_npu 时不再直接报 `No module named 'torch'`，而是读取 CANN 版本（`ascend_toolkit_install.info` / `version.info`），按 Ascend/pytorch 官方配套表自动安装：默认 torch 2.7.1（910B 实测版本）+ 配套 torch_npu（CANN 9.0 → 2.7.1.post4，9.1.0 → post8，9.1.x → post10，9.2 → post11，8.5 → post2），再装 CANN 算子编译需要的 Python 依赖（attrs、decorator、psutil 等）。只有 torch 缺 torch_npu 时按现有 torch 版本配。x86 走 PyTorch CPU 源避免拖进 CUDA；系统 Python 只读时自动 `--user`。`TORCH_VERSION` / `TORCH_NPU_VERSION` 可覆盖。
 
 - `setup.sh` 新增 `--comfy-home DIR`（等同环境变量 `COMFY_HOME`）指定 ComfyUI 安装目录，支持相对路径和 `~`。选定的目录写入仓库根的 `.comfy_home`（已 gitignore），`scripts/download_models.sh`、`install_nodes.sh`、`start_comfyui.sh` 默认读它，不用每次再设 `COMFY_HOME`；命令前临时写 `COMFY_HOME=...` 仍然优先。
