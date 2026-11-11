@@ -148,10 +148,12 @@ pick_torch_npu() {  # $1=CANN 版本 $2=torch 版本 → torch_npu 安装包版�
 py_site_writable() {
     python3 -c 'import os,sys,sysconfig; sys.exit(0 if (sys.prefix != sys.base_prefix or os.access(sysconfig.get_paths()["purelib"], os.W_OK)) else 1)' >/dev/null 2>&1
 }
-pip_boot() {  # 系统 Python 只读时自动加 --user
+# pip_install：优先 uv（快很多），失败自动回退 pip；USE_UV=0 关闭
+source "$REPO_DIR/scripts/pip_fast.sh"
+pip_boot() {  # 系统 Python 只读时自动加 --user（此时走 pip，uv 不支持 --user）
     local extra=()
     py_site_writable || extra=(--user)
-    python3 -m pip install --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} "$@"
+    pip_install --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} "$@"
 }
 
 HAVE_TORCH=0; HAVE_NPU=0
@@ -314,7 +316,7 @@ echo "昇腾适配来源: Ascend-SACT/MiniMax-H3-Comfy-NPU (Apache-2.0)"
 
 echo "=== [4/6] 安装 Python 依赖 ==="
 echo "pip 源: $PIP_MIRROR"
-PIP=(python3 -m pip install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR")
+PIP=(pip_install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR")
 # 新版 ComfyUI 的 av>=17、comfy-angle 只提供 manylinux_2_28 轮子，pip<20.3 识别不了会转去源码编译（看起来像卡住）
 PIP_VER=$(python3 -m pip --version | awk '{print $2}')
 if ! python3 - "$PIP_VER" <<'PY'

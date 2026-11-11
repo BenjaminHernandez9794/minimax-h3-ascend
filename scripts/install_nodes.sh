@@ -85,7 +85,8 @@ fetch_url() { if [ "$PROXY_OK" = 1 ] && [[ "$1" == https://github.com/* ]]; then
 # 锁住预装的 torch / torch_npu / torchvision / numpy，防止节点依赖把它们升级掉
 CONSTRAINTS=/tmp/minimax_h3_nodes_constraints.txt
 python3 -m pip list --format=freeze 2>/dev/null | grep -i -E '^(torch|torch[-_]npu|torchvision|numpy)==' > "$CONSTRAINTS" || true
-PIP=(python3 -m pip install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR" -c "$CONSTRAINTS")
+source "$REPO_DIR/scripts/pip_fast.sh"   # pip_install：优先 uv，失败回退 pip（USE_UV=0 关闭）
+PIP=(pip_install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR" -c "$CONSTRAINTS")
 
 FAILED=()
 NEED_XIMGPROC=0
