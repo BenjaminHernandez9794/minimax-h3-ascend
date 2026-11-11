@@ -2,7 +2,7 @@
 # =============================================================
 # MiniMax-H3 on Ascend 一键部署脚本
 # 适用: CANNLab / 昇腾 910B / 910C 容器与环境
-# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--nodes LIST]
+# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--nodes LIST] [--no-install-uv]
 #   --comfy-home DIR ComfyUI 安装目录（默认 /mnt/workspace/ComfyUI，也可用环境变量 COMFY_HOME）；
 #                   会记到仓库里的 .comfy_home，之后下载模型/装节点/启动脚本自动沿用
 #   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
@@ -10,10 +10,11 @@
 #   没有 torch / torch_npu 时按 CANN 版本自动装配套版本（默认 torch 2.7.1，TORCH_VERSION 可改）
 #   --nodes LIST    顺带安装额外自定义节点（逗号分隔，也可用环境变量 CUSTOM_NODES），如
 #                   qwen21 / qwen21-full / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
+#   --no-install-uv 没有 uv 时不自动安装、直接用 pip（默认自动装 uv 加速；也可用 UV_AUTO_INSTALL=0，USE_UV=0 则完全不用 uv）
 # =============================================================
 set -euo pipefail
 
-usage() { sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
     case "$1" in
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
@@ -24,10 +25,13 @@ while [ $# -gt 0 ]; do
         --comfy-home=*) COMFY_HOME="${1#*=}"; shift ;;
         --nodes)      CUSTOM_NODES="${2:?--nodes 需要节点列表}"; shift 2 ;;
         --nodes=*)    CUSTOM_NODES="${1#*=}"; shift ;;
+        --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
+        --install-uv)    UV_AUTO_INSTALL=1; shift ;;
         -h|--help)    usage; exit 0 ;;
         *) echo "!! 未知参数: $1"; usage; exit 1 ;;
     esac
 done
+export UV_AUTO_INSTALL="${UV_AUTO_INSTALL:-1}" USE_UV="${USE_UV:-1}"
 GH_PROXY="${GH_PROXY:-}"
 GH_PROXY="${GH_PROXY%/}"
 if [ -n "$GH_PROXY" ] && [[ "$GH_PROXY" != http://* && "$GH_PROXY" != https://* ]]; then

@@ -2,10 +2,12 @@
 # 由 setup.sh / scripts/install_nodes.sh source。
 # pip_install <pip install 的参数...>：优先用 uv（并行下载 + 并行安装，比 pip 快很多），失败自动回退 pip。
 #   USE_UV=0          关闭 uv，全程用 pip
+#   UV_AUTO_INSTALL=0 机器上没有 uv 时不自动安装，直接用 pip（默认 1：自动 pip install uv）
 #   PIP_MIRROR        uv 自举安装时用的源（各命令自己的 -i / --index-url 照常生效）
 # 以下情况直接用 pip：没装上 uv、参数里有 --user（uv 不支持）、当前 Python 的 site-packages 不可写。
 
 USE_UV="${USE_UV:-1}"
+UV_AUTO_INSTALL="${UV_AUTO_INSTALL:-1}"
 UV_CMD=()
 _UV_READY=0
 
@@ -21,8 +23,10 @@ uv_init() {
         UV_CMD=("$(command -v uv)")
     elif python3 -m uv --version >/dev/null 2>&1; then
         UV_CMD=(python3 -m uv)
+    elif [ "$UV_AUTO_INSTALL" = 0 ]; then
+        echo "未检测到 uv，且已关闭自动安装（UV_AUTO_INSTALL=0 / --no-install-uv），使用 pip"
     else
-        echo "安装 uv（加速 pip 依赖安装，USE_UV=0 可关闭）..."
+        echo "未检测到 uv，自动安装（不想装可加 --no-install-uv 或 UV_AUTO_INSTALL=0）..."
         local mirror="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}" extra=()
         _py_site_writable || extra=(--user)
         if python3 -m pip install -q --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} -i "$mirror" uv >/dev/null 2>&1 \
@@ -33,7 +37,7 @@ uv_init() {
     if [ ${#UV_CMD[@]} -gt 0 ]; then
         echo "使用 $("${UV_CMD[@]}" --version 2>/dev/null) 安装依赖（失败会自动改用 pip）"
     else
-        echo "uv 不可用，使用 pip 安装依赖"
+        [ "$UV_AUTO_INSTALL" = 0 ] || echo "uv 不可用，使用 pip 安装依赖"
     fi
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================
 # 安装额外的 ComfyUI 自定义节点（克隆/更新 + 装依赖，不会动预装的 torch / torch_npu）
-# 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--list] <名称|别名|GitHub 地址> ...
+# 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--no-install-uv] [--list] <名称|别名|GitHub 地址> ...
 #   名称: goohai rgthree layerstyle easyuse comfyroll（可用逗号分隔）
 #   别名: qwen21      = goohai,rgthree,layerstyle      （Qwen-Image 2.1 Turbo 整合工作流必需）
 #         qwen21-full = qwen21 + easyuse,comfyroll      （连旁路分组里的节点一起装）
@@ -9,11 +9,12 @@
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
 #                       SeedVR2 超分 / TE-Speed-MOSS 均为旁路可选，TE-Speed-MOSS 仅 Windows 不装）
 #   也可直接写 https://github.com/<作者>/<仓库>
-#   环境变量: COMFY_HOME（默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY
+#   --no-install-uv 没有 uv 时不自动安装、直接用 pip
+#   环境变量: COMFY_HOME（默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY、UV_AUTO_INSTALL、USE_UV
 # =============================================================
 set -uo pipefail
 
-usage() { sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 declare -A NODE_URL=(
     [goohai]=https://github.com/goohai/Goohaitools-comfyui.git
@@ -39,6 +40,8 @@ while [ $# -gt 0 ]; do
             for k in goohai rgthree layerstyle easyuse comfyroll seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
             for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
+        --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
+        --install-uv)    UV_AUTO_INSTALL=1; shift ;;
         -h|--help)    usage; exit 0 ;;
         -*) echo "!! 未知参数: $1"; usage; exit 1 ;;
         *) IFS=', ' read -r -a parts <<< "$1"; ITEMS+=("${parts[@]}"); shift ;;
