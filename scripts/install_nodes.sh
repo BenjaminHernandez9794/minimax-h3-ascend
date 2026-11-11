@@ -56,7 +56,9 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMFY_HOME="${COMFY_HOME:-$(cat "$REPO_DIR/.comfy_home" 2>/dev/null || true)}"
 COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
+if [ -n "$PIP_MIRROR" ]; then PIP_MIRROR_FROM="环境变量 PIP_MIRROR"; else PIP_MIRROR_FROM="默认"; fi
 PIP_MIRROR="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
+echo "Python 包源: $PIP_MIRROR（$PIP_MIRROR_FROM）"
 NODES_DIR="$COMFY_HOME/custom_nodes"
 [ -d "$COMFY_HOME" ] || { echo "!! 找不到 ComfyUI: $COMFY_HOME（先跑 setup.sh，或设置 COMFY_HOME）"; exit 1; }
 mkdir -p "$NODES_DIR"

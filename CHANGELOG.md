@@ -5,6 +5,7 @@
 
 ## 2026-11-11
 
+- `setup.sh` / `install_nodes.sh` 开头打印当前用的 Python 包源，并注明来自默认还是环境变量 `PIP_MIRROR`（环境里预设的 `PIP_MIRROR` 会覆盖默认的华为云，之前不容易发现）。
 - `start_comfyui.sh`：除 `-d` 外的参数原样透传给 ComfyUI（如 `--disable-mmap`），也可用 `COMFY_ARGS`。
 - 新增 `scripts/npu_load_test.py`：把一个 safetensors 模型逐个张量拷到 NPU，带 NPU 自检、慢张量提示、出错时报出具体张量，`--ram` 对比 mmap 与先读进内存。用来排查加载模型时卡住 / `vector core timeout (507034)`。
 
