@@ -70,6 +70,7 @@ COMFY_REPO="${COMFY_REPO:-https://github.com/BenjaminHernandez9794/ComfyUI-npu.g
 # 若仓库里没有该分支（例如 COMFY_REPO 指向官方），自动退回「固定 commit + 打补丁」；也可用 COMFY_USE_PATCH=1 强制走补丁。
 COMFY_BRANCH="${COMFY_BRANCH:-$DEFAULT_BRANCH}"
 COMFY_USE_PATCH="${COMFY_USE_PATCH:-0}"
+if [ -n "$PIP_MIRROR" ]; then PIP_MIRROR_FROM="环境变量 PIP_MIRROR"; else PIP_MIRROR_FROM="默认"; fi
 PIP_MIRROR="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
 # 实际拉取地址：设置了 GH_PROXY 且仓库在 github.com 时走代理
 COMFY_FETCH_URL="$COMFY_REPO"
@@ -78,6 +79,7 @@ if [ -n "$GH_PROXY" ] && [[ "$COMFY_REPO" == https://github.com/* ]]; then
 fi
 
 echo "=== [1/6] 环境检查 ==="
+echo "Python 包源: $PIP_MIRROR（$PIP_MIRROR_FROM；pip 和 uv 都用它，改用 PIP_MIRROR=... 覆盖）"
 
 # --- 定位 CANN ---
 ASCEND_HOME=""
