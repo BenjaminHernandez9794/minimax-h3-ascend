@@ -1,0 +1,61 @@
+# MOSS-Image 生图整合工作流（文生图 + 可选 8步加速 / 风格混合 / SeedVR2 超分）
+# 来源工作流: ▶▷MOSS-Image-生图流（整合）.json
+#
+# 用法:
+#   bash scripts/download_models.sh -l moss_image.txt --dry-run            # 先看清单与大小
+#   bash scripts/download_models.sh -l moss_image.txt                      # 默认约 15.4GB（工作流默认启用的那一组）
+#   bash scripts/download_models.sh -l moss_image.txt --with seedvr2       # 加 SeedVR2 超分
+#   bash scripts/download_models.sh -l moss_image.txt --with turbo8,mix    # 加 8步蒸馏 LoRA + 风格混合模型
+#
+# 标签:
+#   (无标签)  必需：工作流默认启用（mode=0）的那一组——SFT INT8 主模型 + Qwen3.5-9B INT8 文本编码器 + flux2 小 VAE   约 15.4GB
+#   vaefull   完整 flux2-vae（部分分组用全量 VAE）                                               约 0.34GB
+#   base      Base 版主模型 INT8（非 SFT，旁路组）                                               约 5.41GB
+#   bf16      SFT 主模型 bf16（更高画质、更吃显存）                                               约 10.2GB
+#   w4a8      Qwen3.5-9B w4a8 gptq 文本编码器（旁路组的低显存可选）                                约 7.34GB
+#   turbo8    MOSS-Image-SFT 8 步蒸馏 LoRA（旁路的加速组，LoraLoaderModelOnly 用）                约 1.19GB
+#   mix       Moody-Moss-Mix 风格混合主模型 INT8（旁路组）                                        约 5.09GB
+#   seedvr2   SeedVR2 7B 超分（UNET + VAE，旁路的放大组）                                         约 8.83GB
+#
+# 子目录与工作流一致（主模型/LoRA 在 Moss_image\ 下）。工作流是在 Windows 上保存的，路径里是反斜杠，
+# Linux 上加载后需在 UNETLoader / LoraLoaderModelOnly / VAELoader / CLIPLoader 里重新选一次同名文件。
+#
+# 工作流还需要这些自定义节点（不在本清单内）:
+#   【必需】rgthree-comfy（Label / Fast Groups Bypasser / Seed / Image Comparer）
+#   【必需】ComfyUI-Easy-Use（yolain，easy showAnything / easy cleanGpuUsed）
+#   【必需·待确认源】ResolutionSelector —— 默认启用的分辨率选择节点，同名节点多个包都有，
+#          需按整合包确认具体来源（候选：bradsec/ComfyUI_ResolutionSelectorPlus 等）。
+#   【可选·默认旁路】
+#     - TE-Speed-MOSS（tl2012tl/TE-Speed-MOSS）：TESpeedMoss 加速节点。**仅 Windows x64 + Python 3.13，
+#       以编译好的 nodes.pyd 发布，在昇腾/aarch64 Linux 上无法加载**；好在工作流里默认旁路，不用它即可正常出图。
+#     - SeedVR2 超分节点（numz 或 AInVFX 的 ComfyUI-SeedVR2_VideoUpscaler）：SeedVR2Preprocess / Conditioning / PostProcessing。
+#     - TextGenerate（提示词优化）、ComfySwitchNode、ResizeImageMaskNode：均在旁路组，按需再装。
+
+#@default
+
+# ---- 必需（工作流默认启用的一组）----
+Comfy-Org/MOSS-Image:diffusion_models/moss_image_sft_int8_convrot.safetensors   diffusion_models/Moss_image/
+Comfy-Org/MOSS-Image:text_encoders/qwen3.5_9b_int8_convrot.safetensors          text_encoders
+Comfy-Org/MOSS-Image:vae/flux2-vae_small.safetensors                            vae
+
+# ---- 完整 VAE ----
+Comfy-Org/MOSS-Image:vae/flux2-vae.safetensors                                  vae   vaefull
+
+# ---- Base 版主模型 ----
+Comfy-Org/MOSS-Image:diffusion_models/moss_image_base_int8_convrot.safetensors  diffusion_models/Moss_image/   base
+
+# ---- SFT bf16 主模型（更高画质）----
+Comfy-Org/MOSS-Image:diffusion_models/moss_image_sft_bf16.safetensors           diffusion_models/Moss_image/   bf16
+
+# ---- w4a8 文本编码器（低显存可选）----
+Comfy-Org/MOSS-Image:text_encoders/qwen3.5_9b_w4a8_gptq.safetensors             text_encoders   w4a8
+
+# ---- 8 步蒸馏 LoRA（加速组，工作流里重命名）----
+lodestones/MOSS-Image-SFT-8-steps-dmd:lora.safetensors   loras/Moss_image/MOSS-Image-SFT-8-steps.safetensors   turbo8
+
+# ---- Moody-Moss-Mix 风格混合主模型（工作流命名为 v2025STEPSCFG3，HF 上最接近为 V4.1）----
+catlover1937/moody-moss-mix:Moody-Moss-Mix-V4.1_00001__clean-int8_convrot.safetensors   diffusion_models/Moss_image/Moss-moodyMossMix_v2025STEPSCFG3_int8_convrot.safetensors   mix
+
+# ---- SeedVR2 超分（放大组）----
+Comfy-Org/SeedVR2:diffusion_models/seedvr2_7b_int8_convrot.safetensors   diffusion_models   seedvr2
+Comfy-Org/SeedVR2:vae/seedvr2_ema_vae_fp16.safetensors                   vae   seedvr2

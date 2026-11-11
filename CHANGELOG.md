@@ -3,6 +3,11 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-11
+
+- 新增 `model_lists/moss_image.txt`：MOSS-Image 生图整合工作流的模型清单。默认约 15.4GB（工作流默认启用的一组：SFT INT8 主模型 + Qwen3.5-9B INT8 文本编码器 + flux2 小 VAE），可选标签 `vaefull`、`base`、`bf16`、`w4a8`、`turbo8`（8 步蒸馏 LoRA）、`mix`（Moody-Moss-Mix 风格混合）、`seedvr2`（SeedVR2 7B 超分）。11 个链接已 dry-run + HEAD 验证。源：Comfy-Org/MOSS-Image、lodestones/MOSS-Image-SFT-8-steps-dmd、catlover1937/moody-moss-mix、Comfy-Org/SeedVR2。
+- `scripts/install_nodes.sh`：新增 `seedvr2` 节点与 `moss`（rgthree+easyuse）、`moss-full`（+seedvr2）别名。注：工作流默认启用的 `ResolutionSelector` 节点来源待确认需手动装；`TE-Speed-MOSS`（TESpeedMoss 加速节点）仅 Windows x64 + Py3.13、以 nodes.pyd 发布，昇腾/aarch64 无法加载，好在工作流里默认旁路，不影响出图。
+
 ## 2026-11-10
 
 - **修复 910B 上 cv2 导入报错 `libGLdispatch.so.0: cannot allocate memory in static TLS block`**：torch_npu 等先加载占满静态 TLS，等 opencv 的 libGLdispatch 再 dlopen 就没槽了。症状是 `import cv2` 崩，连带弄挂所有 import cv2 的节点——ComfyUI_LayerStyle、ComfyUI-Easy-Use 整个 IMPORT FAILED，孤海包虽加载成功但 `GH_MaskCropV2`、`GH_CropRestore`、`TextEncodeQwenImage21GH` 等 import cv2 的节点被静默跳过（工作流里显示缺失节点）。`start_comfyui.sh` 现在把 `libGLdispatch.so.0`（和 `libgomp.so.1`）加入 `LD_PRELOAD`，在进程启动、静态 TLS 还够时就拿到槽位。

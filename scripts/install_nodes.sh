@@ -5,6 +5,9 @@
 #   名称: goohai rgthree layerstyle easyuse comfyroll（可用逗号分隔）
 #   别名: qwen21      = goohai,rgthree,layerstyle      （Qwen-Image 2.1 Turbo 整合工作流必需）
 #         qwen21-full = qwen21 + easyuse,comfyroll      （连旁路分组里的节点一起装）
+#         moss        = rgthree,easyuse                 （MOSS-Image 整合工作流必需的；
+#                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
+#                       SeedVR2 超分 / TE-Speed-MOSS 均为旁路可选，TE-Speed-MOSS 仅 Windows 不装）
 #   也可直接写 https://github.com/<作者>/<仓库>
 #   环境变量: COMFY_HOME（默认 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY
 # =============================================================
@@ -18,10 +21,13 @@ declare -A NODE_URL=(
     [layerstyle]=https://github.com/chflame163/ComfyUI_LayerStyle.git
     [easyuse]=https://github.com/yolain/ComfyUI-Easy-Use.git
     [comfyroll]=https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git
+    [seedvr2]=https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git
 )
 declare -A NODE_ALIAS=(
     [qwen21]="goohai rgthree layerstyle"
     [qwen21-full]="goohai rgthree layerstyle easyuse comfyroll"
+    [moss]="rgthree easyuse"
+    [moss-full]="rgthree easyuse seedvr2"
 )
 
 ITEMS=()
@@ -30,8 +36,8 @@ while [ $# -gt 0 ]; do
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
         --list)
-            for k in goohai rgthree layerstyle easyuse comfyroll; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
-            for k in qwen21 qwen21-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
+            for k in goohai rgthree layerstyle easyuse comfyroll seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
+            for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
         -h|--help)    usage; exit 0 ;;
         -*) echo "!! 未知参数: $1"; usage; exit 1 ;;
