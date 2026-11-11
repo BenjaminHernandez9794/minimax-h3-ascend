@@ -12,7 +12,7 @@ try:
     from PIL import Image
 except ImportError:
     print("第一次使用需要先装 Pillow，正在自动安装...")
-    os.system(f'"{sys.executable}" -m pip install pillow -i https://pypi.tuna.tsinghua.edu.cn/simple')
+    os.system(f'"{sys.executable}" -m pip install pillow -i https://repo.huaweicloud.com/repository/pypi/simple')
     from PIL import Image
 
 if len(sys.argv) < 2:

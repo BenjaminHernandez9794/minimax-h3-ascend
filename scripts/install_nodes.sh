@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================
 # 安装额外的 ComfyUI 自定义节点（克隆/更新 + 装依赖，不会动预装的 torch / torch_npu）
-# 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--list] <名称|别名|GitHub 地址> ...
+# 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--no-install-uv] [--list] <名称|别名|GitHub 地址> ...
 #   名称: goohai rgthree layerstyle easyuse comfyroll（可用逗号分隔）
 #   别名: qwen21      = goohai,rgthree,layerstyle      （Qwen-Image 2.1 Turbo 整合工作流必需）
 #         qwen21-full = qwen21 + easyuse,comfyroll      （连旁路分组里的节点一起装）
@@ -9,11 +9,12 @@
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
 #                       SeedVR2 超分 / TE-Speed-MOSS 均为旁路可选，TE-Speed-MOSS 仅 Windows 不装）
 #   也可直接写 https://github.com/<作者>/<仓库>
-#   环境变量: COMFY_HOME（默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY
+#   --no-install-uv 没有 uv 时不自动安装、直接用 pip
+#   环境变量: COMFY_HOME（默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY、UV_AUTO_INSTALL、USE_UV
 # =============================================================
 set -uo pipefail
 
-usage() { sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 declare -A NODE_URL=(
     [goohai]=https://github.com/goohai/Goohaitools-comfyui.git
@@ -39,6 +40,8 @@ while [ $# -gt 0 ]; do
             for k in goohai rgthree layerstyle easyuse comfyroll seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
             for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
+        --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
+        --install-uv)    UV_AUTO_INSTALL=1; shift ;;
         -h|--help)    usage; exit 0 ;;
         -*) echo "!! 未知参数: $1"; usage; exit 1 ;;
         *) IFS=', ' read -r -a parts <<< "$1"; ITEMS+=("${parts[@]}"); shift ;;
@@ -53,7 +56,7 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMFY_HOME="${COMFY_HOME:-$(cat "$REPO_DIR/.comfy_home" 2>/dev/null || true)}"
 COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
-PIP_MIRROR="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+PIP_MIRROR="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
 NODES_DIR="$COMFY_HOME/custom_nodes"
 [ -d "$COMFY_HOME" ] || { echo "!! 找不到 ComfyUI: $COMFY_HOME（先跑 setup.sh，或设置 COMFY_HOME）"; exit 1; }
 mkdir -p "$NODES_DIR"
@@ -85,7 +88,8 @@ fetch_url() { if [ "$PROXY_OK" = 1 ] && [[ "$1" == https://github.com/* ]]; then
 # 锁住预装的 torch / torch_npu / torchvision / numpy，防止节点依赖把它们升级掉
 CONSTRAINTS=/tmp/minimax_h3_nodes_constraints.txt
 python3 -m pip list --format=freeze 2>/dev/null | grep -i -E '^(torch|torch[-_]npu|torchvision|numpy)==' > "$CONSTRAINTS" || true
-PIP=(python3 -m pip install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR" -c "$CONSTRAINTS")
+source "$REPO_DIR/scripts/pip_fast.sh"   # pip_install：优先 uv，失败回退 pip（USE_UV=0 关闭）
+PIP=(pip_install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR" -c "$CONSTRAINTS")
 
 FAILED=()
 NEED_XIMGPROC=0
@@ -131,6 +135,20 @@ if ! python3 -c "import cv2" 2>/dev/null; then
 elif [ "$NEED_XIMGPROC" = 1 ] && ! python3 -c "import cv2; cv2.ximgproc" 2>/dev/null; then
     echo "提示: 已装的 opencv 不含 contrib 模块，LayerStyle 的部分节点（引导滤波等）不可用。如需要可执行:"
     echo "      pip uninstall -y opencv-python opencv-python-headless && pip install opencv-contrib-python-headless"
+fi
+
+# Comfyroll 的 CR Select Font 在 Linux 上写死读 /usr/share/fonts/truetype，精简容器没有这个目录时
+# 前端加载节点列表会报 FileNotFoundError。没有就建上，并链接 Comfyroll 自带的字体（CR 文字节点本来就从它自己的 fonts/ 取字体）
+CR_FONTS="$NODES_DIR/ComfyUI_Comfyroll_CustomNodes/fonts"
+SYS_FONTS=/usr/share/fonts/truetype
+if [ -d "$CR_FONTS" ] && [ "$(uname -s)" = Linux ] && [ ! -d "$SYS_FONTS" ]; then
+    if mkdir -p "$SYS_FONTS" 2>/dev/null; then
+        for f in "$CR_FONTS"/*.ttf; do [ -e "$f" ] && ln -sf "$f" "$SYS_FONTS/"; done
+        echo "已创建 $SYS_FONTS 并链接 Comfyroll 自带字体（修复 CR Select Font 报错）"
+    else
+        echo "提示: 缺少 $SYS_FONTS 且无权限创建，CR Select Font 节点会报错（其它节点不受影响）。可执行:"
+        echo "      sudo mkdir -p $SYS_FONTS && sudo ln -sf $CR_FONTS/*.ttf $SYS_FONTS/"
+    fi
 fi
 
 if [ ${#FAILED[@]} -gt 0 ]; then

@@ -4,14 +4,16 @@
 #       bash scripts/start_comfyui.sh -d       # 后台运行（nohup），日志只写文件，用 tail -f 查看
 # 环境变量: COMFY_HOME(默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI)  COMFYUI_PORT(默认 8188)  NPU_DEVICES(可手动指定)
 #           DAEMON=1 等同 -d；LOWVRAM=1 / NORMALVRAM=1 显存模式
+#       其它参数原样传给 ComfyUI main.py，如: bash scripts/start_comfyui.sh --disable-mmap（也可用环境变量 COMFY_ARGS）
 set -euo pipefail
 
 DAEMON="${DAEMON:-0}"
+EXTRA_ARGS=()
 for a in "$@"; do
     case "$a" in
         -d|--daemon|--background) DAEMON=1 ;;
-        -h|--help) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "!! 未知参数: $a（可用 -d / --daemon）"; exit 1 ;;
+        -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) EXTRA_ARGS+=("$a") ;;   # 其它参数透传给 ComfyUI
     esac
 done
 
@@ -91,6 +93,8 @@ fi
 if [ "${NORMALVRAM:-0}" = "1" ]; then
     ARGS="$ARGS --normalvram"
 fi
+ARGS="$ARGS ${COMFY_ARGS:-} ${EXTRA_ARGS[*]:-}"
+[ -z "${COMFY_ARGS:-}${EXTRA_ARGS[*]:-}" ] || echo "附加 ComfyUI 参数: ${COMFY_ARGS:-} ${EXTRA_ARGS[*]:-}"
 
 export PYTHONUNBUFFERED=1   # 日志不缓冲，实时可见
 cd "$COMFY_HOME"

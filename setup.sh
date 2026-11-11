@@ -2,7 +2,7 @@
 # =============================================================
 # MiniMax-H3 on Ascend 一键部署脚本
 # 适用: CANNLab / 昇腾 910B / 910C 容器与环境
-# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--nodes LIST]
+# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--nodes LIST] [--no-install-uv]
 #   --comfy-home DIR ComfyUI 安装目录（默认 /mnt/workspace/ComfyUI，也可用环境变量 COMFY_HOME）；
 #                   会记到仓库里的 .comfy_home，之后下载模型/装节点/启动脚本自动沿用
 #   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
@@ -10,10 +10,11 @@
 #   没有 torch / torch_npu 时按 CANN 版本自动装配套版本（默认 torch 2.7.1，TORCH_VERSION 可改）
 #   --nodes LIST    顺带安装额外自定义节点（逗号分隔，也可用环境变量 CUSTOM_NODES），如
 #                   qwen21 / qwen21-full / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
+#   --no-install-uv 没有 uv 时不自动安装、直接用 pip（默认自动装 uv 加速；也可用 UV_AUTO_INSTALL=0，USE_UV=0 则完全不用 uv）
 # =============================================================
 set -euo pipefail
 
-usage() { sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
     case "$1" in
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
@@ -24,10 +25,13 @@ while [ $# -gt 0 ]; do
         --comfy-home=*) COMFY_HOME="${1#*=}"; shift ;;
         --nodes)      CUSTOM_NODES="${2:?--nodes 需要节点列表}"; shift 2 ;;
         --nodes=*)    CUSTOM_NODES="${1#*=}"; shift ;;
+        --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
+        --install-uv)    UV_AUTO_INSTALL=1; shift ;;
         -h|--help)    usage; exit 0 ;;
         *) echo "!! 未知参数: $1"; usage; exit 1 ;;
     esac
 done
+export UV_AUTO_INSTALL="${UV_AUTO_INSTALL:-1}" USE_UV="${USE_UV:-1}"
 GH_PROXY="${GH_PROXY:-}"
 GH_PROXY="${GH_PROXY%/}"
 if [ -n "$GH_PROXY" ] && [[ "$GH_PROXY" != http://* && "$GH_PROXY" != https://* ]]; then
@@ -66,7 +70,7 @@ COMFY_REPO="${COMFY_REPO:-https://github.com/BenjaminHernandez9794/ComfyUI-npu.g
 # 若仓库里没有该分支（例如 COMFY_REPO 指向官方），自动退回「固定 commit + 打补丁」；也可用 COMFY_USE_PATCH=1 强制走补丁。
 COMFY_BRANCH="${COMFY_BRANCH:-$DEFAULT_BRANCH}"
 COMFY_USE_PATCH="${COMFY_USE_PATCH:-0}"
-PIP_MIRROR="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+PIP_MIRROR="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
 # 实际拉取地址：设置了 GH_PROXY 且仓库在 github.com 时走代理
 COMFY_FETCH_URL="$COMFY_REPO"
 if [ -n "$GH_PROXY" ] && [[ "$COMFY_REPO" == https://github.com/* ]]; then
@@ -148,10 +152,12 @@ pick_torch_npu() {  # $1=CANN 版本 $2=torch 版本 → torch_npu 安装包版�
 py_site_writable() {
     python3 -c 'import os,sys,sysconfig; sys.exit(0 if (sys.prefix != sys.base_prefix or os.access(sysconfig.get_paths()["purelib"], os.W_OK)) else 1)' >/dev/null 2>&1
 }
-pip_boot() {  # 系统 Python 只读时自动加 --user
+# pip_install：优先 uv（快很多），失败自动回退 pip；USE_UV=0 关闭
+source "$REPO_DIR/scripts/pip_fast.sh"
+pip_boot() {  # 系统 Python 只读时自动加 --user（此时走 pip，uv 不支持 --user）
     local extra=()
     py_site_writable || extra=(--user)
-    python3 -m pip install --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} "$@"
+    pip_install --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} "$@"
 }
 
 HAVE_TORCH=0; HAVE_NPU=0
@@ -159,7 +165,7 @@ python3 -c "import torch" >/dev/null 2>&1 && HAVE_TORCH=1
 [ "$HAVE_TORCH" = 1 ] && python3 -c "import torch, torch_npu" >/dev/null 2>&1 && HAVE_NPU=1
 if [ "$HAVE_NPU" = 0 ]; then
     CANN_VER=$(cann_version)
-    PIP_MIRROR_BOOT="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+    PIP_MIRROR_BOOT="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
     if [ "$HAVE_TORCH" = 1 ]; then
         TV=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
         echo "检测到 torch $TV 但没有 torch_npu（CANN $CANN_VER），自动安装配套 torch_npu"
@@ -314,7 +320,7 @@ echo "昇腾适配来源: Ascend-SACT/MiniMax-H3-Comfy-NPU (Apache-2.0)"
 
 echo "=== [4/6] 安装 Python 依赖 ==="
 echo "pip 源: $PIP_MIRROR"
-PIP=(python3 -m pip install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR")
+PIP=(pip_install --prefer-binary --timeout 60 --retries 3 -i "$PIP_MIRROR")
 # 新版 ComfyUI 的 av>=17、comfy-angle 只提供 manylinux_2_28 轮子，pip<20.3 识别不了会转去源码编译（看起来像卡住）
 PIP_VER=$(python3 -m pip --version | awk '{print $2}')
 if ! python3 - "$PIP_VER" <<'PY'
@@ -335,7 +341,25 @@ echo "锁定已安装版本: $(tr '\n' ' ' < "$PIP_CONSTRAINTS")"
 # ComfyUI 核心依赖（跳过需要 py3.12 的模板包）
 grep -v -E 'comfyui-workflow-templates|comfyui-embedded-docs' requirements.txt > /tmp/req_core.txt
 "${PIP[@]}" -c "$PIP_CONSTRAINTS" -r /tmp/req_core.txt
-"${PIP[@]}" --no-deps comfyui-workflow-templates comfyui-embedded-docs
+# 模板/文档包按 requirements.txt 的版本装；模板元包用 --no-deps 跳过约 1.1GB 的示例图片/视频包，
+# 但必须补上它 import 时依赖的 core + json 小包（只装元包时 ComfyUI 会报 comfyui-workflow-templates is not installed）
+mapfile -t TPL_SPECS < <(grep -E '^(comfyui-workflow-templates|comfyui-embedded-docs)' requirements.txt)
+[ ${#TPL_SPECS[@]} -gt 0 ] || TPL_SPECS=(comfyui-workflow-templates comfyui-embedded-docs)
+"${PIP[@]}" --no-deps "${TPL_SPECS[@]}"
+TPL_DEPS=$(python3 - <<'PY'
+from importlib.metadata import requires
+try:
+    reqs = requires("comfyui-workflow-templates") or []
+except Exception:
+    reqs = []
+print(" ".join(r.split(";")[0].replace(" ", "") for r in reqs
+               if "extra" not in r and ("templates-core" in r or "templates-json" in r)))
+PY
+)
+if [ -n "$TPL_DEPS" ]; then
+    # shellcheck disable=SC2086
+    "${PIP[@]}" --no-deps $TPL_DEPS || echo "  (模板 core/json 包没装上，只影响 ComfyUI 的「模板」浏览，不影响工作流)"
+fi
 TORCH_VER=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
 if [ "$COMFY_PROFILE" = "legacy" ]; then
     # 旧版 ComfyUI 强依赖 torchaudio，且必须与 torch 同版本

@@ -5,6 +5,17 @@
 
 ## 2026-11-11
 
+- `start_comfyui.sh`：除 `-d` 外的参数原样透传给 ComfyUI（如 `--disable-mmap`），也可用 `COMFY_ARGS`。
+- 新增 `scripts/npu_load_test.py`：把一个 safetensors 模型逐个张量拷到 NPU，带 NPU 自检、慢张量提示、出错时报出具体张量，`--ram` 对比 mmap 与先读进内存。用来排查加载模型时卡住 / `vector core timeout (507034)`。
+
+- `install_nodes.sh`：修复 Comfyroll 的 `CR Select Font` 报 `FileNotFoundError: /usr/share/fonts/truetype`（该节点在 Linux 写死读这个目录，精简容器没有）。装了 Comfyroll 且目录不存在时自动创建，并链接 Comfyroll 自带的 ttf 字体；没权限则打印 sudo 命令。
+
+- 修复启动时报 `comfyui-workflow-templates is not installed`：模板元包一直用 `--no-deps` 装（为了跳过约 1.1GB 的示例图片/视频包），但新版元包 import 时需要 `comfyui-workflow-templates-core` / `-json`，缺了就报这个错、模板浏览为空。现在 `setup.sh` / `setup_nvidia.sh` 按 requirements.txt 的版本装元包和文档包，并按元包声明的版本补装 core + json（约 8MB），媒体包仍然跳过。
+
+- 依赖安装改用 **uv**（并行下载 + 并行安装，第 4 步「Installing collected packages」那种一个个装的长等待会短很多）：`setup.sh` 和 `scripts/install_nodes.sh` 的 pip 安装都走新的 `scripts/pip_fast.sh`。机器上没有 uv 时先从镜像装一个（约 20MB）；uv 失败自动回退 pip；系统 Python 只读（需要 `--user`）时直接用 pip。`USE_UV=0` 可完全改回 pip。没有 uv 时是否自动安装由 `--no-install-uv`（setup.sh / install_nodes.sh 参数）或 `UV_AUTO_INSTALL=0` 控制，关掉后直接用 pip；默认自动装。
+
+- 默认 pip 镜像从清华 TUNA 换成华为云（`https://repo.huaweicloud.com/repository/pypi/simple`）：`setup.sh`、`scripts/install_nodes.sh`、`scripts/setup_nvidia.sh` 及几个小脚本统一改。`PIP_MIRROR=<地址>` 仍可覆盖（`setup_nvidia.sh` 现在也支持）。华为云上 torch 2.7.1、torch_npu 2.7.1.post2～post11（aarch64 / py3.11）都在。
+
 - `setup.sh`：没有 torch / torch_npu 时不再直接报 `No module named 'torch'`，而是读取 CANN 版本（`ascend_toolkit_install.info` / `version.info`），按 Ascend/pytorch 官方配套表自动安装：默认 torch 2.7.1（910B 实测版本）+ 配套 torch_npu（CANN 9.0 → 2.7.1.post4，9.1.0 → post8，9.1.x → post10，9.2 → post11，8.5 → post2），再装 CANN 算子编译需要的 Python 依赖（attrs、decorator、psutil 等）。只有 torch 缺 torch_npu 时按现有 torch 版本配。x86 走 PyTorch CPU 源避免拖进 CUDA；系统 Python 只读时自动 `--user`。`TORCH_VERSION` / `TORCH_NPU_VERSION` 可覆盖。
 
 - `setup.sh` 新增 `--comfy-home DIR`（等同环境变量 `COMFY_HOME`）指定 ComfyUI 安装目录，支持相对路径和 `~`。选定的目录写入仓库根的 `.comfy_home`（已 gitignore），`scripts/download_models.sh`、`install_nodes.sh`、`start_comfyui.sh` 默认读它，不用每次再设 `COMFY_HOME`；命令前临时写 `COMFY_HOME=...` 仍然优先。
