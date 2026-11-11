@@ -5,6 +5,8 @@
 
 ## 2026-11-11
 
+- `install_nodes.sh`：修复 Comfyroll 的 `CR Select Font` 报 `FileNotFoundError: /usr/share/fonts/truetype`（该节点在 Linux 写死读这个目录，精简容器没有）。装了 Comfyroll 且目录不存在时自动创建，并链接 Comfyroll 自带的 ttf 字体；没权限则打印 sudo 命令。
+
 - 修复启动时报 `comfyui-workflow-templates is not installed`：模板元包一直用 `--no-deps` 装（为了跳过约 1.1GB 的示例图片/视频包），但新版元包 import 时需要 `comfyui-workflow-templates-core` / `-json`，缺了就报这个错、模板浏览为空。现在 `setup.sh` / `setup_nvidia.sh` 按 requirements.txt 的版本装元包和文档包，并按元包声明的版本补装 core + json（约 8MB），媒体包仍然跳过。
 
 - 依赖安装改用 **uv**（并行下载 + 并行安装，第 4 步「Installing collected packages」那种一个个装的长等待会短很多）：`setup.sh` 和 `scripts/install_nodes.sh` 的 pip 安装都走新的 `scripts/pip_fast.sh`。机器上没有 uv 时先从镜像装一个（约 20MB）；uv 失败自动回退 pip；系统 Python 只读（需要 `--user`）时直接用 pip。`USE_UV=0` 可完全改回 pip。没有 uv 时是否自动安装由 `--no-install-uv`（setup.sh / install_nodes.sh 参数）或 `UV_AUTO_INSTALL=0` 控制，关掉后直接用 pip；默认自动装。

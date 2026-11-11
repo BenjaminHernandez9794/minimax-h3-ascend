@@ -137,6 +137,20 @@ elif [ "$NEED_XIMGPROC" = 1 ] && ! python3 -c "import cv2; cv2.ximgproc" 2>/dev/
     echo "      pip uninstall -y opencv-python opencv-python-headless && pip install opencv-contrib-python-headless"
 fi
 
+# Comfyroll 的 CR Select Font 在 Linux 上写死读 /usr/share/fonts/truetype，精简容器没有这个目录时
+# 前端加载节点列表会报 FileNotFoundError。没有就建上，并链接 Comfyroll 自带的字体（CR 文字节点本来就从它自己的 fonts/ 取字体）
+CR_FONTS="$NODES_DIR/ComfyUI_Comfyroll_CustomNodes/fonts"
+SYS_FONTS=/usr/share/fonts/truetype
+if [ -d "$CR_FONTS" ] && [ "$(uname -s)" = Linux ] && [ ! -d "$SYS_FONTS" ]; then
+    if mkdir -p "$SYS_FONTS" 2>/dev/null; then
+        for f in "$CR_FONTS"/*.ttf; do [ -e "$f" ] && ln -sf "$f" "$SYS_FONTS/"; done
+        echo "已创建 $SYS_FONTS 并链接 Comfyroll 自带字体（修复 CR Select Font 报错）"
+    else
+        echo "提示: 缺少 $SYS_FONTS 且无权限创建，CR Select Font 节点会报错（其它节点不受影响）。可执行:"
+        echo "      sudo mkdir -p $SYS_FONTS && sudo ln -sf $CR_FONTS/*.ttf $SYS_FONTS/"
+    fi
+fi
+
 if [ ${#FAILED[@]} -gt 0 ]; then
     echo "!! 未完全成功: ${FAILED[*]}"; exit 1
 fi
