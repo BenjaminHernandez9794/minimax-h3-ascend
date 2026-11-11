@@ -35,7 +35,13 @@ python3 -m pip install -q -i "$PIP_MIRROR" torch torchvision torchaudio --index-
     python3 -m pip install -q -i "$PIP_MIRROR" torch torchvision torchaudio
 grep -v -E 'comfyui-workflow-templates|comfyui-embedded-docs' requirements.txt > /tmp/req_core.txt
 python3 -m pip install -q -i "$PIP_MIRROR" -r /tmp/req_core.txt
-python3 -m pip install -q --no-deps -i "$PIP_MIRROR" comfyui-workflow-templates comfyui-embedded-docs
+mapfile -t TPL_SPECS < <(grep -E '^(comfyui-workflow-templates|comfyui-embedded-docs)' requirements.txt)
+python3 -m pip install -q --no-deps -i "$PIP_MIRROR" "${TPL_SPECS[@]:-comfyui-workflow-templates}"
+# 模板元包 --no-deps 跳过约 1.1GB 媒体包，但要补 core + json，否则 ComfyUI 报 comfyui-workflow-templates is not installed
+TPL_DEPS=$(python3 -c 'from importlib.metadata import requires as q
+r=q("comfyui-workflow-templates") or []
+print(" ".join(x.split(";")[0].replace(" ","") for x in r if "extra" not in x and ("templates-core" in x or "templates-json" in x)))' 2>/dev/null || true)
+[ -z "$TPL_DEPS" ] || python3 -m pip install -q --no-deps -i "$PIP_MIRROR" $TPL_DEPS || true
 
 # 可选加速（失败不影响主流程）
 python3 -m pip install -q -i "$PIP_MIRROR" sageattention 2>/dev/null && echo "SageAttention 已安装" || echo "SageAttention 跳过（可选）"

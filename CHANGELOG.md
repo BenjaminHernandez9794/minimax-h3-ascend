@@ -5,6 +5,8 @@
 
 ## 2026-11-11
 
+- 修复启动时报 `comfyui-workflow-templates is not installed`：模板元包一直用 `--no-deps` 装（为了跳过约 1.1GB 的示例图片/视频包），但新版元包 import 时需要 `comfyui-workflow-templates-core` / `-json`，缺了就报这个错、模板浏览为空。现在 `setup.sh` / `setup_nvidia.sh` 按 requirements.txt 的版本装元包和文档包，并按元包声明的版本补装 core + json（约 8MB），媒体包仍然跳过。
+
 - 依赖安装改用 **uv**（并行下载 + 并行安装，第 4 步「Installing collected packages」那种一个个装的长等待会短很多）：`setup.sh` 和 `scripts/install_nodes.sh` 的 pip 安装都走新的 `scripts/pip_fast.sh`。机器上没有 uv 时先从镜像装一个（约 20MB）；uv 失败自动回退 pip；系统 Python 只读（需要 `--user`）时直接用 pip。`USE_UV=0` 可完全改回 pip。没有 uv 时是否自动安装由 `--no-install-uv`（setup.sh / install_nodes.sh 参数）或 `UV_AUTO_INSTALL=0` 控制，关掉后直接用 pip；默认自动装。
 
 - 默认 pip 镜像从清华 TUNA 换成华为云（`https://repo.huaweicloud.com/repository/pypi/simple`）：`setup.sh`、`scripts/install_nodes.sh`、`scripts/setup_nvidia.sh` 及几个小脚本统一改。`PIP_MIRROR=<地址>` 仍可覆盖（`setup_nvidia.sh` 现在也支持）。华为云上 torch 2.7.1、torch_npu 2.7.1.post2～post11（aarch64 / py3.11）都在。

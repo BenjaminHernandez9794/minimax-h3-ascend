@@ -341,7 +341,25 @@ echo "锁定已安装版本: $(tr '\n' ' ' < "$PIP_CONSTRAINTS")"
 # ComfyUI 核心依赖（跳过需要 py3.12 的模板包）
 grep -v -E 'comfyui-workflow-templates|comfyui-embedded-docs' requirements.txt > /tmp/req_core.txt
 "${PIP[@]}" -c "$PIP_CONSTRAINTS" -r /tmp/req_core.txt
-"${PIP[@]}" --no-deps comfyui-workflow-templates comfyui-embedded-docs
+# 模板/文档包按 requirements.txt 的版本装；模板元包用 --no-deps 跳过约 1.1GB 的示例图片/视频包，
+# 但必须补上它 import 时依赖的 core + json 小包（只装元包时 ComfyUI 会报 comfyui-workflow-templates is not installed）
+mapfile -t TPL_SPECS < <(grep -E '^(comfyui-workflow-templates|comfyui-embedded-docs)' requirements.txt)
+[ ${#TPL_SPECS[@]} -gt 0 ] || TPL_SPECS=(comfyui-workflow-templates comfyui-embedded-docs)
+"${PIP[@]}" --no-deps "${TPL_SPECS[@]}"
+TPL_DEPS=$(python3 - <<'PY'
+from importlib.metadata import requires
+try:
+    reqs = requires("comfyui-workflow-templates") or []
+except Exception:
+    reqs = []
+print(" ".join(r.split(";")[0].replace(" ", "") for r in reqs
+               if "extra" not in r and ("templates-core" in r or "templates-json" in r)))
+PY
+)
+if [ -n "$TPL_DEPS" ]; then
+    # shellcheck disable=SC2086
+    "${PIP[@]}" --no-deps $TPL_DEPS || echo "  (模板 core/json 包没装上，只影响 ComfyUI 的「模板」浏览，不影响工作流)"
+fi
 TORCH_VER=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
 if [ "$COMFY_PROFILE" = "legacy" ]; then
     # 旧版 ComfyUI 强依赖 torchaudio，且必须与 torch 同版本
