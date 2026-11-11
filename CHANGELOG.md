@@ -5,6 +5,9 @@
 
 ## 2026-11-11
 
+- `start_comfyui.sh`：除 `-d` 外的参数原样透传给 ComfyUI（如 `--disable-mmap`），也可用 `COMFY_ARGS`。
+- 新增 `scripts/npu_load_test.py`：把一个 safetensors 模型逐个张量拷到 NPU，带 NPU 自检、慢张量提示、出错时报出具体张量，`--ram` 对比 mmap 与先读进内存。用来排查加载模型时卡住 / `vector core timeout (507034)`。
+
 - `install_nodes.sh`：修复 Comfyroll 的 `CR Select Font` 报 `FileNotFoundError: /usr/share/fonts/truetype`（该节点在 Linux 写死读这个目录，精简容器没有）。装了 Comfyroll 且目录不存在时自动创建，并链接 Comfyroll 自带的 ttf 字体；没权限则打印 sudo 命令。
 
 - 修复启动时报 `comfyui-workflow-templates is not installed`：模板元包一直用 `--no-deps` 装（为了跳过约 1.1GB 的示例图片/视频包），但新版元包 import 时需要 `comfyui-workflow-templates-core` / `-json`，缺了就报这个错、模板浏览为空。现在 `setup.sh` / `setup_nvidia.sh` 按 requirements.txt 的版本装元包和文档包，并按元包声明的版本补装 core + json（约 8MB），媒体包仍然跳过。
