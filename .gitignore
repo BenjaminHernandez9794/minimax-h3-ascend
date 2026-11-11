@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 .venv/
 export.tgz
+.comfy_home

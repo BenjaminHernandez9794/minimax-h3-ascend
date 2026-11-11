@@ -9,6 +9,11 @@
 - **来源**
   - `组织/仓库:仓库内路径` —— Hugging Face 文件，走 `HF_ENDPOINT`（默认 hf-mirror.com）
   - `组织/仓库:仓库内路径@revision` —— 指定分支 / tag / commit（默认 `main`）
+  - `civitai:<modelVersionId>@<fileId>` —— Civitai 文件（`@fileId` 省略则取该版本的主文件）。
+    需要 API Key：`export CIVITAI_TOKEN=xxxx`（civitai.com → 用户设置 → API Keys）；
+    站点可用 `CIVITAI_ENDPOINT` 换镜像域名（如 `https://civitai.red`）。ID 就在模型页地址里：
+    `civitai.com/models/3015644/dirty-moss?modelVersionId=3423156` → 版本 3423156，fileId 用
+    `curl https://civitai.com/api/v1/model-versions/3423156` 查 `files[].id`。
   - `https://...` —— 任意直链（需支持 Range 才能多连接，否则自动单连接）
 - **目标**：相对 `$COMFY_HOME/models`（也可写绝对路径）
   - `loras` 或 `loras/` —— 目录，文件名沿用来源

@@ -2,7 +2,7 @@
 # MiniMax-H3 on Ascend —— ComfyUI 启动脚本（自适应 910B/910C，卡数自动识别）
 # 用法: bash scripts/start_comfyui.sh          # 前台运行，日志实时输出到终端，同时追加写入日志文件；Ctrl+C 停止
 #       bash scripts/start_comfyui.sh -d       # 后台运行（nohup），日志只写文件，用 tail -f 查看
-# 环境变量: COMFY_HOME(默认 /mnt/workspace/ComfyUI)  COMFYUI_PORT(默认 8188)  NPU_DEVICES(可手动指定)
+# 环境变量: COMFY_HOME(默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI)  COMFYUI_PORT(默认 8188)  NPU_DEVICES(可手动指定)
 #           DAEMON=1 等同 -d；LOWVRAM=1 / NORMALVRAM=1 显存模式
 set -euo pipefail
 
@@ -15,6 +15,8 @@ for a in "$@"; do
     esac
 done
 
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMFY_HOME="${COMFY_HOME:-$(cat "$REPO_DIR/.comfy_home" 2>/dev/null || true)}"
 COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
 PORT="${COMFYUI_PORT:-8188}"
 RUNTIME="${COMFY_RUNTIME_DIR:-/mnt/workspace/runtime}"

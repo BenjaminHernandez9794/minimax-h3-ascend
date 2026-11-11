@@ -17,7 +17,9 @@ MiniMax-H3 on Ascend —— 通用模型下载器
   COMFY_HOME       ComfyUI 根目录，模型落到 $COMFY_HOME/models（默认 /mnt/workspace/ComfyUI）
   MODEL_LIST       清单文件，多个用逗号分隔（等价于 -l）
   HF_ENDPOINT      下载源（默认 https://hf-mirror.com）
-  HF_TOKEN         访问受限仓库时使用
+  HF_TOKEN         访问受限仓库时使用（只发给 HF 源，不会发给其它站点）
+  CIVITAI_TOKEN    Civitai API Key（civitai: 来源必需；在 civitai.com 用户设置 → API Keys 生成）
+  CIVITAI_ENDPOINT Civitai 站点（默认 https://civitai.com，可换 https://civitai.red 等镜像域名）
   MAX_CONN         每文件并发连接数（默认 32）
   FILES_PARALLEL   同时下载的文件数（默认 2）
   旧变量仍兼容：INCLUDE_HERETIC_TE / INCLUDE_REF2VA / SKIP_FULL_FL2VA / INCLUDE_PRUNED /
@@ -32,7 +34,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -101,18 +103,75 @@ def parse_list(path, seen=None):
     return entries, defaults, all_tags
 
 
+CIVITAI_ENDPOINT = os.environ.get("CIVITAI_ENDPOINT", "https://civitai.com").rstrip("/")
+CIVITAI_TOKEN = os.environ.get("CIVITAI_TOKEN") or os.environ.get("CIVITAI_API_KEY") or ""
+_civitai_meta = {}
+
+
+def civitai_file(version, file_id=None):
+    """查 Civitai 公开 API，返回 (文件名, 大约字节数)。不需要 token。"""
+    key = (version, file_id)
+    if key in _civitai_meta:
+        return _civitai_meta[key]
+    r = requests.get(f"{CIVITAI_ENDPOINT}/api/v1/model-versions/{version}", timeout=60)
+    r.raise_for_status()
+    files = r.json().get("files", [])
+    pick = None
+    for f in files:
+        if file_id is not None and str(f.get("id")) == str(file_id):
+            pick = f
+        elif file_id is None and f.get("primary"):
+            pick = f
+    if pick is None and file_id is None and files:
+        pick = files[0]
+    if pick is None:
+        raise RuntimeError(f"Civitai 版本 {version} 里没有 fileId={file_id}")
+    _civitai_meta[key] = (pick["name"], int(pick.get("sizeKB", 0) * 1024) or None)
+    return _civitai_meta[key]
+
+
 def build_url(src, endpoint):
-    """repo:path[@rev] → HF resolve URL；http(s) 原样返回。"""
+    """repo:path[@rev] → HF resolve URL；civitai:<版本ID>[@<fileId>] → Civitai 下载链接；http(s) 原样返回。"""
     if src.startswith(("http://", "https://")):
         return src, unquote(os.path.basename(src.split("?", 1)[0]))
+    if src.startswith("civitai:"):
+        ref = src[len("civitai:"):]
+        version, file_id = (ref.split("@", 1) + [None])[:2]
+        url = f"{CIVITAI_ENDPOINT}/api/download/models/{version}" + (f"?fileId={file_id}" if file_id else "")
+        try:
+            fname = civitai_file(version, file_id)[0]
+        except Exception:
+            fname = f"civitai_{version}_{file_id or 'primary'}.safetensors"
+        return url, fname
     if ":" not in src:
-        sys.exit(f"[错误] 来源格式应为 <repo>:<仓库内路径>[@revision] 或完整 URL: {src}")
+        sys.exit(f"[错误] 来源格式应为 <repo>:<仓库内路径>[@revision]、civitai:<版本ID>[@<fileId>] 或完整 URL: {src}")
     repo, rpath = src.split(":", 1)
     rev = "main"
     if "@" in rpath:
         rpath, rev = rpath.rsplit("@", 1)
     # 路径里的空格写成 %20（清单按空白分列）；本地文件名按解码后的名字保存
     return f"{endpoint.rstrip('/')}/{repo}/resolve/{rev}/{rpath}", unquote(os.path.basename(rpath))
+
+
+def is_civitai(url):
+    return url.startswith(CIVITAI_ENDPOINT + "/api/download/")
+
+
+def with_token(url):
+    """Civitai 下载链接带上 token（只在真正请求时加，打印时不显示）。"""
+    if is_civitai(url) and CIVITAI_TOKEN:
+        return url + ("&" if "?" in url else "?") + "token=" + CIVITAI_TOKEN
+    return url
+
+
+HF_HOSTS = set()
+
+
+def auth_headers(url):
+    tok = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    if tok and urlparse(url).netloc in HF_HOSTS:
+        return {"Authorization": f"Bearer {tok}"}
+    return {}
 
 
 def local_path(models_dir, dest, fname):
@@ -131,10 +190,28 @@ total = [0]
 
 
 def probe(session, url):
-    """手动跟随跳转，拿到最终 URL、大小、sha256（HF 的 X-Linked-Etag）、是否支持 Range。"""
-    sha, size, cur = None, None, url
+    """手动跟随跳转，拿到最终 URL、大小、sha256（HF 的 X-Linked-Etag）、是否支持 Range。
+    不支持 HEAD 的源（如 Civitai 只允许 GET）改用 GET Range: bytes=0-0 探测。"""
+    if is_civitai(url) and not CIVITAI_TOKEN:
+        raise RuntimeError("Civitai 下载需要 API Key：export CIVITAI_TOKEN=xxxx（civitai.com 用户设置 → API Keys）")
+    sha, size, cur = None, None, with_token(url)
     for _ in range(10):
-        r = session.head(cur, allow_redirects=False, timeout=60)
+        r = session.head(cur, allow_redirects=False, timeout=60, headers=auth_headers(cur))
+        if r.status_code in (405, 501) or (r.status_code in (400, 403, 404) and cur != with_token(url)):
+            # HEAD 不被允许（或预签名链接只签了 GET）：用 GET 取 1 字节
+            g = session.get(cur, headers={"Range": "bytes=0-0", **auth_headers(cur)}, stream=True,
+                            allow_redirects=False, timeout=60)
+            g.close()
+            if g.status_code in (301, 302, 303, 307, 308) and g.headers.get("Location"):
+                cur = urljoin(cur, g.headers["Location"])
+                continue
+            if g.status_code == 401:
+                raise RuntimeError("401 未授权（CIVITAI_TOKEN 无效或该模型需登录）")
+            g.raise_for_status()
+            cr = g.headers.get("Content-Range", "")
+            if g.status_code == 206 and "/" in cr and cr.rsplit("/", 1)[1].isdigit():
+                return cur, int(cr.rsplit("/", 1)[1]), sha, True
+            return cur, int(g.headers["Content-Length"]) if g.headers.get("Content-Length") else size, sha, False
         h = r.headers
         if h.get("X-Linked-Size"):
             size = int(h["X-Linked-Size"])
@@ -144,6 +221,8 @@ def probe(session, url):
         if r.status_code in (301, 302, 303, 307, 308) and h.get("Location"):
             cur = urljoin(cur, h["Location"])
             continue
+        if r.status_code == 401:
+            raise RuntimeError("401 未授权" + ("（CIVITAI_TOKEN 无效或该模型需登录）" if is_civitai(url) else "（受限仓库请设置 HF_TOKEN）"))
         r.raise_for_status()
         if h.get("Content-Length"):
             size = int(h["Content-Length"])
@@ -225,7 +304,7 @@ def download(session, url, path, nconn, verify):
             pos = a
             try:
                 hdr = {"Range": f"bytes={a}-{b}"} if ranges_ok else {}
-                r = session.get(cur_url[0], headers=hdr, stream=True, timeout=90)
+                r = session.get(cur_url[0], headers={**hdr, **auth_headers(cur_url[0])}, stream=True, timeout=90)
                 if r.status_code in (403, 410) and cur_url[0] != url:
                     # CDN 签名链接过期：重新探测后重试本段
                     cur_url[0] = probe(session, url)[0]
@@ -369,11 +448,11 @@ def main():
     if not jobs:
         print("没有要下载的文件。")
         return 0
+    if any(is_civitai(u) for u, _ in jobs) and not CIVITAI_TOKEN:
+        print(f"[提示] 清单里有 Civitai 文件，需要 API Key：export CIVITAI_TOKEN=xxxx（{CIVITAI_ENDPOINT} 用户设置 → API Keys），否则这些文件会失败", flush=True)
 
     session = requests.Session()
-    tok = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
-    if tok:
-        session.headers["Authorization"] = f"Bearer {tok}"
+    HF_HOSTS.update({urlparse(endpoint).netloc, "huggingface.co", "hf-mirror.com"})
     adapter = requests.adapters.HTTPAdapter(pool_connections=fpar * 2, pool_maxsize=nconn * fpar + 8)
     session.mount("https://", adapter); session.mount("http://", adapter)
 
@@ -382,6 +461,14 @@ def main():
         try:
             return probe(session, job[0])[1]
         except Exception:
+            if is_civitai(job[0]):
+                # 没 token 也能从公开 API 拿到大致大小，方便 dry-run
+                q = urlparse(job[0]).query
+                fid = dict(x.split("=", 1) for x in q.split("&") if "=" in x).get("fileId")
+                try:
+                    return civitai_file(urlparse(job[0]).path.rstrip("/").rsplit("/", 1)[1], fid)[1]
+                except Exception:
+                    return None
             return None
     with ThreadPoolExecutor(max_workers=8) as ex:
         sizes = list(ex.map(size_of, jobs))
