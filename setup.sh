@@ -7,12 +7,13 @@
 #                   会记到仓库里的 .comfy_home，之后下载模型/装节点/启动脚本自动沿用
 #   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
 #                   拉取时用 URL/https://github.com/...；也可用环境变量 GH_PROXY
+#   没有 torch / torch_npu 时按 CANN 版本自动装配套版本（默认 torch 2.7.1，TORCH_VERSION 可改）
 #   --nodes LIST    顺带安装额外自定义节点（逗号分隔，也可用环境变量 CUSTOM_NODES），如
 #                   qwen21 / qwen21-full / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
 # =============================================================
 set -euo pipefail
 
-usage() { sed -n '3,11p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
     case "$1" in
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
@@ -93,11 +94,108 @@ NPU_COUNT=$(ls -d /dev/davinci[0-9]* 2>/dev/null | wc -l)
 if [ "$NPU_COUNT" -ge 4 ]; then NPU_COUNT=4; elif [ "$NPU_COUNT" -ge 2 ]; then NPU_COUNT=2; else NPU_COUNT=1; fi
 echo "NPU 数量(用于 npu_count): $NPU_COUNT"
 
-# --- 检查 torch_npu ---
+# --- 检查 torch / torch_npu，缺了就按 CANN 版本自动装配套版本 ---
+# 配套关系来自 Ascend/pytorch COMPATIBILITY.md。默认 torch 2.7.1（本项目在 910B 实测的版本），
+# 可用 TORCH_VERSION=2.9.0 之类改；TORCH_NPU_VERSION 可直接指定 torch_npu 安装包版本。
+# 格式: <CANN 版本前缀> <torch> <torch_npu>；按顺序取第一条前缀匹配的（更具体的写在前面）
+TORCH_NPU_TABLE="
+9.2 2.7.1 2.7.1.post11
+9.2 2.9.0 2.9.0.post9
+9.2 2.10.0 2.10.0.post7
+9.2 2.11.0 2.11.0.post3
+9.2 2.12.0 2.12.0.post3
+9.2 2.13.0 2.13.0
+9.2 2.14.0 2.14.0
+9.1.0 2.7.1 2.7.1.post8
+9.1.0 2.9.0 2.9.0.post6
+9.1.0 2.10.0 2.10.0.post4
+9.1.0 2.11.0 2.11.0
+9.1.0 2.12.0 2.12.0
+9.1 2.7.1 2.7.1.post10
+9.1 2.9.0 2.9.0.post8
+9.1 2.10.0 2.10.0.post6
+9.1 2.11.0 2.11.0.post2
+9.1 2.12.0 2.12.0.post2
+9.0 2.7.1 2.7.1.post4
+9.0 2.8.0 2.8.0.post4
+9.0 2.9.0 2.9.0.post2
+9.0 2.10.0 2.10.0
+8.5 2.7.1 2.7.1.post2
+8.5 2.8.0 2.8.0.post2
+8.5 2.9.0 2.9.0
+8.3 2.7.1 2.7.1
+8.3 2.8.0 2.8.0
+"
+cann_version() {
+    local root="${ASCEND_TOOLKIT_HOME:-$ASCEND_HOME/latest}" f v
+    for f in "$root"/*/ascend_toolkit_install.info "$root"/ascend_toolkit_install.info \
+             "$root"/compiler/version.info "$root"/runtime/version.info "$root"/version.cfg; do
+        [ -f "$f" ] || continue
+        v=$(grep -m1 -oiE '^version=[0-9A-Za-z.]+' "$f" 2>/dev/null | cut -d= -f2)
+        [ -n "$v" ] && { echo "$v"; return; }
+    done
+    # 兜底：从目录名里找（如 .../ascend-toolkit/9.0.0）
+    v=$(readlink -f "$root" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.(RC)?[0-9]+' | tail -1)
+    echo "${v:-unknown}"
+}
+pick_torch_npu() {  # $1=CANN 版本 $2=torch 版本 → torch_npu 安装包版本（找不到输出空）
+    local cann="$1" tv="$2" c t n
+    while read -r c t n; do
+        [ -n "$c" ] || continue
+        if [ "$t" = "$tv" ] && [[ "$cann" == "$c"* ]]; then echo "$n"; return; fi
+    done <<< "$TORCH_NPU_TABLE"
+}
+py_site_writable() {
+    python3 -c 'import os,sys,sysconfig; sys.exit(0 if (sys.prefix != sys.base_prefix or os.access(sysconfig.get_paths()["purelib"], os.W_OK)) else 1)' >/dev/null 2>&1
+}
+pip_boot() {  # 系统 Python 只读时自动加 --user
+    local extra=()
+    py_site_writable || extra=(--user)
+    python3 -m pip install --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} "$@"
+}
+
+HAVE_TORCH=0; HAVE_NPU=0
+python3 -c "import torch" >/dev/null 2>&1 && HAVE_TORCH=1
+[ "$HAVE_TORCH" = 1 ] && python3 -c "import torch, torch_npu" >/dev/null 2>&1 && HAVE_NPU=1
+if [ "$HAVE_NPU" = 0 ]; then
+    CANN_VER=$(cann_version)
+    PIP_MIRROR_BOOT="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+    if [ "$HAVE_TORCH" = 1 ]; then
+        TV=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
+        echo "检测到 torch $TV 但没有 torch_npu（CANN $CANN_VER），自动安装配套 torch_npu"
+    else
+        TV="${TORCH_VERSION:-2.7.1}"
+        echo "未检测到 torch（CANN $CANN_VER），自动安装 torch $TV + 配套 torch_npu"
+    fi
+    NPU_VER="${TORCH_NPU_VERSION:-$(pick_torch_npu "$CANN_VER" "$TV")}"
+    if [ -z "$NPU_VER" ]; then
+        echo "  !! 配套表里没有 CANN $CANN_VER + torch $TV 的组合，改装 torch_npu==${TV}.* 的最新版（可能与 CANN 不配套）"
+        echo "     可用 TORCH_VERSION / TORCH_NPU_VERSION 手动指定，配套表见 https://github.com/Ascend/pytorch/blob/master/COMPATIBILITY.md"
+        NPU_SPEC="torch_npu==${TV}.*"
+    else
+        NPU_SPEC="torch_npu==${NPU_VER}"
+    fi
+    echo "  → torch==${TV}  ${NPU_SPEC}"
+    if [ "$HAVE_TORCH" = 0 ]; then
+        if [ "$(uname -m)" = "x86_64" ]; then
+            # x86 上 PyPI 的 torch 会拖进几 GB 的 CUDA 依赖，昇腾只需 CPU 版
+            pip_boot --index-url https://download.pytorch.org/whl/cpu "torch==${TV}+cpu" \
+                || pip_boot -i "$PIP_MIRROR_BOOT" "torch==${TV}" \
+                || { echo "!! torch ${TV} 安装失败"; exit 1; }
+        else
+            pip_boot -i "$PIP_MIRROR_BOOT" "torch==${TV}" || { echo "!! torch ${TV} 安装失败"; exit 1; }
+        fi
+    fi
+    pip_boot -i "$PIP_MIRROR_BOOT" "$NPU_SPEC" || { echo "!! ${NPU_SPEC} 安装失败"; exit 1; }
+    # CANN 编译算子时需要的 Python 依赖（缺了首次运行会报 No module named 'decorator' / 'attrs' 等）
+    pip_boot -i "$PIP_MIRROR_BOOT" pyyaml attrs decorator psutil absl-py cloudpickle ml-dtypes scipy tornado \
+        || echo "  (CANN 的 Python 依赖部分没装上，若首次推理报缺模块再手动装)"
+fi
+
 python3 - <<'PY'
 import torch, torch_npu
 print(f"torch {torch.__version__} / torch_npu {torch_npu.__version__} / npu_available={torch.npu.is_available()}")
-assert torch.npu.is_available(), "torch_npu 不可用，请检查 CANN 与 torch_npu 版本配套"
+assert torch.npu.is_available(), "torch_npu 不可用，请检查 CANN 与 torch_npu 版本配套（或驱动/固件）"
 PY
 
 echo "=== [2/6] 获取 ComfyUI (profile=$COMFY_PROFILE) ==="
