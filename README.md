@@ -74,6 +74,8 @@ git clone https://gitcode.com/nxxwjbl/minimax-h3-ascend-uncensored.git   # GitHu
 cd minimax-h3-ascend
 bash setup.sh                      # ① 装好一切（拉ComfyUI+打昇腾补丁+依赖+工作流）
 # 国内拉 GitHub 慢可加代理: bash setup.sh --gh-proxy https://gp.1314510.xyz
+# 装到别的目录（默认 /mnt/workspace/ComfyUI）: bash setup.sh --comfy-home /data/ComfyUI
+#   目录会记到仓库里的 .comfy_home，之后下载模型/装节点/启动都自动沿用，不用再设 COMFY_HOME
 bash scripts/download_models.sh    # ② 下模型（默认约121GB，--lowvram 约61GB；hf-mirror 分片并行，支持断点续传）
 bash scripts/start_comfyui.sh      # ③ 前台启动，日志实时显示（同时写 /mnt/workspace/runtime/comfyui-8188.log），浏览器打开 http://127.0.0.1:8188
 # 后台运行: bash scripts/start_comfyui.sh -d，再用 tail -f /mnt/workspace/runtime/comfyui-8188.log 看日志

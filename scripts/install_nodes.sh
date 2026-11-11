@@ -9,7 +9,7 @@
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
 #                       SeedVR2 超分 / TE-Speed-MOSS 均为旁路可选，TE-Speed-MOSS 仅 Windows 不装）
 #   也可直接写 https://github.com/<作者>/<仓库>
-#   环境变量: COMFY_HOME（默认 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY
+#   环境变量: COMFY_HOME（默认取 setup.sh 记下的目录，否则 /mnt/workspace/ComfyUI）、PIP_MIRROR、GH_PROXY
 # =============================================================
 set -uo pipefail
 
@@ -50,6 +50,8 @@ GH_PROXY="${GH_PROXY:-}"; GH_PROXY="${GH_PROXY%/}"
 if [ -n "$GH_PROXY" ] && [[ "$GH_PROXY" != http://* && "$GH_PROXY" != https://* ]]; then
     GH_PROXY="https://$GH_PROXY"
 fi
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMFY_HOME="${COMFY_HOME:-$(cat "$REPO_DIR/.comfy_home" 2>/dev/null || true)}"
 COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
 PIP_MIRROR="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 NODES_DIR="$COMFY_HOME/custom_nodes"

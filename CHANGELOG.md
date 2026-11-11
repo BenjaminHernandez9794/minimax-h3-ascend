@@ -5,6 +5,8 @@
 
 ## 2026-11-11
 
+- `setup.sh` 新增 `--comfy-home DIR`（等同环境变量 `COMFY_HOME`）指定 ComfyUI 安装目录，支持相对路径和 `~`。选定的目录写入仓库根的 `.comfy_home`（已 gitignore），`scripts/download_models.sh`、`install_nodes.sh`、`start_comfyui.sh` 默认读它，不用每次再设 `COMFY_HOME`；命令前临时写 `COMFY_HOME=...` 仍然优先。
+
 - `scripts/dl_models.py` 支持 Civitai：清单来源写 `civitai:<modelVersionId>@<fileId>`，用 `CIVITAI_TOKEN` 鉴权（只在请求时拼到链接上，不打印），`CIVITAI_ENDPOINT` 可换镜像域名。Civitai 不允许 HEAD，改用 `GET Range: bytes=0-0` 探测大小，仍是分片并行 + 断点续传；没 token 时 dry-run 用公开 API 显示大小。顺带：`HF_TOKEN` 现在只发给 HF 源，不再随请求发到其它站点。
 - `model_lists/moss_image.txt` 加入 7 个 Moss 特调模型（Civitai，均 INT8，按整合包文件名落到 `diffusion_models/Moss_image/`）：标签 `dirty`、`pornmaster`、`qizhen`（绮真）、`artius`（+`artius_te` 配套文本编码器/VAE）、`imagine`、`miaomiao`；`mix` 改为工作流原版 Moody-Moss-Mix V1 25STEPS CFG3（之前是 HF 上的 V4.1 近似替代）。各模型推荐采样器/CFG/步数写在清单注释里。
 

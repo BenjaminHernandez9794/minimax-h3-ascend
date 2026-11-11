@@ -11,7 +11,9 @@
 # 清单格式见 model_lists/README.md。其余参数原样传给 scripts/dl_models.py。
 set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
+COMFY_HOME="${COMFY_HOME:-$(cat "$REPO_DIR/.comfy_home" 2>/dev/null || true)}"
+COMFY_HOME="${COMFY_HOME:-/mnt/workspace/ComfyUI}"
+export COMFY_HOME
 
 ARGS=()
 for a in "$@"; do
