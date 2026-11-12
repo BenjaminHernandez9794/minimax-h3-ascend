@@ -5,6 +5,7 @@
 
 ## 2026-11-12
 
+- 新增模型清单 `model_lists/fisher_pose.txt`：Fisher Pose 工作流所需模型，文件名与工作流默认一致。默认正面摆姿（Qwen Image 2.1 INT8 + Qwen3-VL 8B bf16 + VAE + VNCCS LoRA，约 25.6GB）；`angle` 加换机位（AnyAngle + TripoSplat 一套，约 3.9GB）；`te_int8` 文本编码器换 INT8（需在 CLIPLoader 改选）。
 - `install_nodes.sh`：新增 `fisherpose`（Work-Fisher/ComfyUI-Fisher-Pose，单/双人姿势编辑 + 换机位，无额外 Python 依赖），加入 `qwen21` / `qwen21-full`。
 - 新增 `scripts/ssh_tunnel.sh`：SSH 反向隧道把容器里的 ComfyUI 映射到公网服务器（start/stop/restart/status，断线自动重连，自动装 ssh/sshpass）。配置可用环境变量覆盖，未填服务器/密码时拒绝启动。
 - `install_nodes.sh`：新增节点 `t8`（T8mars/comfyui-minimax-h3-prompt-enhancer-T8，Qwen Image 2.1 / MiniMax-H3 提示词增强，支持 OpenAI 兼容 API）和 `encpng`（BenjaminHernandez9794/ComfyUI-EncryptedPNG，AES-GCM 加密保存 / 解密加载图片，依赖仅 cryptography），并加入 `qwen21` / `qwen21-full` 别名。
