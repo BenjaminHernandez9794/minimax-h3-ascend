@@ -3,6 +3,10 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-12
+
+- `start_comfyui.sh`：每次启动前检查 `/usr/share/fonts/truetype`，不存在就补建并链接 Comfyroll 自带字体。安装时 `install_nodes.sh` 虽然建过，但很多容器重启后 `/tmp` 以外会被重置，目录又没了，`CR Select Font` 再次报 `FileNotFoundError`。
+
 ## 2026-11-11
 
 - 修复上一条改动引入的 `setup.sh: line 73: PIP_MIRROR: unbound variable`（脚本开了 `set -u`，没设 `PIP_MIRROR` 时直接报错退出）。
