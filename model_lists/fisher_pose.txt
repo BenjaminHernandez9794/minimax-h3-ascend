@@ -1,0 +1,34 @@
+# Fisher Pose「无限姿势 + 无限视角（支持双人）」工作流（Work-Fisher/ComfyUI-Fisher-Pose）
+# 节点安装: bash scripts/install_nodes.sh fisherpose   （已包含在 qwen21 / qwen21-full 里）
+# 工作流: custom_nodes/ComfyUI-Fisher-Pose/workflows/【Work-Fisher】无限姿势+无限视角（支持双人）.json
+#
+# 用法:
+#   bash scripts/download_models.sh -l fisher_pose.txt --dry-run            # 先看清单与大小
+#   bash scripts/download_models.sh -l fisher_pose.txt                      # 默认：正面摆姿，约 25.6GB
+#   bash scripts/download_models.sh -l fisher_pose.txt --with angle         # 再加换机位 6 个文件，约 +3.9GB
+#   bash scripts/download_models.sh -l fisher_pose.txt --with te_int8       # 文本编码器换 INT8（17.5GB → 9.4GB）
+#
+# 标签:
+#   (无标签)  Qwen Image 2.1 INT8 主模型、Qwen3-VL 8B bf16 文本编码器、VAE、VNCCS 姿势 LoRA   约 25.6GB
+#   angle     换机位：AnyAngle LoRA + TripoSplat 一套（工作流里该分组默认静音）            约 3.9GB
+#   te_int8   用 qwen3vl_8b_int8_convrot 代替 bf16 文本编码器（与 qwen_image_2.1_turbo 清单共用同一文件），
+#             省 8GB 下载与显存；工作流 CLIPLoader 需改选这个文件（类型仍是 qwen_image）
+#
+# 文件名与工作流默认选择完全一致，放在模型根目录（无子目录），Linux 上无需重选。
+# 照片识别姿势另需 comfyui_controlnet_aux（DWPreprocessor，首次运行自动下 DWPose 权重），不在本清单内。
+# 与 qwen_image_2.1_turbo 清单共用的文件（VAE、te_int8）已存在会自动跳过。
+
+# ---- 基础：正面摆姿（单人 / 双人都需要）----
+Comfy-Org/Qwen-Image-2.1:diffusion_models/qwen_image_2.1_int8_convrot.safetensors   diffusion_models
+Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3vl_8b_bf16.safetensors                  text_encoders  !te_int8
+Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3vl_8b_int8_convrot.safetensors          text_encoders  te_int8
+Comfy-Org/Qwen-Image-2.1:vae/qwen_image_2.1_vae_bf16.safetensors                    vae
+MIUProject/VNCCS_PoseStudio_QI2.1:VNCCS_QI2_PoseStudioV1.1.safetensors              loras
+
+# ---- 换机位（45° / 90° / 俯视等）----
+lilylilith/QI_2.1_AnyAngle:QI2.1_AnyAngle.safetensors                                loras                angle
+VAST-AI/TripoSplat:diffusion_models/triposplat_fp16.safetensors                      diffusion_models     angle
+VAST-AI/TripoSplat:vae/triposplat_vae_decoder_fp16.safetensors                       vae                  angle
+VAST-AI/TripoSplat:vae/flux2-vae.safetensors                                         vae                  angle
+VAST-AI/TripoSplat:clip_vision/dino_v3_vit_h.safetensors                             clip_vision          angle
+VAST-AI/TripoSplat:background_removal/birefnet.safetensors                           background_removal   angle

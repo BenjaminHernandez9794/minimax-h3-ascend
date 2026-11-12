@@ -3,6 +3,14 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-12
+
+- 新增模型清单 `model_lists/fisher_pose.txt`：Fisher Pose 工作流所需模型，文件名与工作流默认一致。默认正面摆姿（Qwen Image 2.1 INT8 + Qwen3-VL 8B bf16 + VAE + VNCCS LoRA，约 25.6GB）；`angle` 加换机位（AnyAngle + TripoSplat 一套，约 3.9GB）；`te_int8` 文本编码器换 INT8（需在 CLIPLoader 改选）。
+- `install_nodes.sh`：新增 `fisherpose`（Work-Fisher/ComfyUI-Fisher-Pose，单/双人姿势编辑 + 换机位，无额外 Python 依赖），加入 `qwen21` / `qwen21-full`。
+- 新增 `scripts/ssh_tunnel.sh`：SSH 反向隧道把容器里的 ComfyUI 映射到公网服务器（start/stop/restart/status，断线自动重连，自动装 ssh/sshpass）。配置可用环境变量覆盖，未填服务器/密码时拒绝启动。
+- `install_nodes.sh`：新增节点 `t8`（T8mars/comfyui-minimax-h3-prompt-enhancer-T8，Qwen Image 2.1 / MiniMax-H3 提示词增强，支持 OpenAI 兼容 API）和 `encpng`（BenjaminHernandez9794/ComfyUI-EncryptedPNG，AES-GCM 加密保存 / 解密加载图片，依赖仅 cryptography），并加入 `qwen21` / `qwen21-full` 别名。
+- `start_comfyui.sh`：每次启动前检查 `/usr/share/fonts/truetype`，不存在就补建并链接 Comfyroll 自带字体。安装时 `install_nodes.sh` 虽然建过，但很多容器重启后 `/tmp` 以外会被重置，目录又没了，`CR Select Font` 再次报 `FileNotFoundError`。
+
 ## 2026-11-11
 
 - 修复上一条改动引入的 `setup.sh: line 73: PIP_MIRROR: unbound variable`（脚本开了 `set -u`，没设 `PIP_MIRROR` 时直接报错退出）。
