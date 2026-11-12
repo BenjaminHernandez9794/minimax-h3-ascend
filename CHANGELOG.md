@@ -5,6 +5,7 @@
 
 ## 2026-11-12
 
+- `install_nodes.sh`：新增节点 `t8`（T8mars/comfyui-minimax-h3-prompt-enhancer-T8，Qwen Image 2.1 / MiniMax-H3 提示词增强，支持 OpenAI 兼容 API）和 `encpng`（BenjaminHernandez9794/ComfyUI-EncryptedPNG，AES-GCM 加密保存 / 解密加载图片，依赖仅 cryptography），并加入 `qwen21` / `qwen21-full` 别名。
 - `start_comfyui.sh`：每次启动前检查 `/usr/share/fonts/truetype`，不存在就补建并链接 Comfyroll 自带字体。安装时 `install_nodes.sh` 虽然建过，但很多容器重启后 `/tmp` 以外会被重置，目录又没了，`CR Select Font` 再次报 `FileNotFoundError`。
 
 ## 2026-11-11

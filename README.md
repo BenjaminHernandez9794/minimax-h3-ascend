@@ -130,6 +130,8 @@ bash scripts/install_nodes.sh qwen21-full --gh-proxy https://gp.1314510.xyz   # 
 bash scripts/install_nodes.sh --list    # 可选名称与别名
 ```
 
+`qwen21` / `qwen21-full` 现在也包含 T8 提示词增强节点（Qwen Image 2.1 Prompt Enhancer，可选 OpenAI 兼容接口，留空时读 `OPENAI_BASE_URL` / `OPENAI_API_KEY`）和 ComfyUI-EncryptedPNG（AES-GCM 加密保存与解密加载，密码留空时读 `ENCPNG_PASSWORD`）。单独装：`bash scripts/install_nodes.sh t8,encpng`。
+
 ## 📦 模型清单（含审查状态 / 硬件要求 / 测试状态）
 
 > 全部公开可用；✅=本仓库实测通过，❓=未测试（理论可用，欢迎反馈），❌=昇腾不可用。

@@ -2,8 +2,10 @@
 # =============================================================
 # 安装额外的 ComfyUI 自定义节点（克隆/更新 + 装依赖，不会动预装的 torch / torch_npu）
 # 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--no-install-uv] [--list] <名称|别名|GitHub 地址> ...
-#   名称: goohai rgthree layerstyle easyuse comfyroll（可用逗号分隔）
-#   别名: qwen21      = goohai,rgthree,layerstyle      （Qwen-Image 2.1 Turbo 整合工作流必需）
+#   名称: goohai rgthree layerstyle easyuse comfyroll t8 encpng seedvr2（可用逗号分隔）
+#         t8     = T8 提示词增强（Qwen Image 2.1 / MiniMax-H3，可接 OpenAI 兼容 API）
+#         encpng = ComfyUI-EncryptedPNG（AES-GCM 加密保存 / 解密加载图片）
+#   别名: qwen21      = goohai,rgthree,layerstyle,t8,encpng （Qwen-Image 2.1 Turbo 整合工作流 + 提示词增强 + 加密保存）
 #         qwen21-full = qwen21 + easyuse,comfyroll      （连旁路分组里的节点一起装）
 #         moss        = rgthree,easyuse                 （MOSS-Image 整合工作流必需的；
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
@@ -14,7 +16,7 @@
 # =============================================================
 set -uo pipefail
 
-usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'; }
 
 declare -A NODE_URL=(
     [goohai]=https://github.com/goohai/Goohaitools-comfyui.git
@@ -23,10 +25,12 @@ declare -A NODE_URL=(
     [easyuse]=https://github.com/yolain/ComfyUI-Easy-Use.git
     [comfyroll]=https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git
     [seedvr2]=https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git
+    [t8]=https://github.com/T8mars/comfyui-minimax-h3-prompt-enhancer-T8.git
+    [encpng]=https://github.com/BenjaminHernandez9794/ComfyUI-EncryptedPNG.git
 )
 declare -A NODE_ALIAS=(
-    [qwen21]="goohai rgthree layerstyle"
-    [qwen21-full]="goohai rgthree layerstyle easyuse comfyroll"
+    [qwen21]="goohai rgthree layerstyle t8 encpng"
+    [qwen21-full]="goohai rgthree layerstyle t8 encpng easyuse comfyroll"
     [moss]="rgthree easyuse"
     [moss-full]="rgthree easyuse seedvr2"
 )
@@ -37,7 +41,7 @@ while [ $# -gt 0 ]; do
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
         --list)
-            for k in goohai rgthree layerstyle easyuse comfyroll seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
+            for k in goohai rgthree layerstyle easyuse comfyroll t8 encpng seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
             for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
         --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
