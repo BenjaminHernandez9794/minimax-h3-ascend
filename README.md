@@ -122,6 +122,17 @@ bash scripts/download_models.sh --verify                    # 下完按 HF 的 s
 
 一句话：**有免费昇腾就别租卡**；非要租，按显存下菜——24GB 只能 480P，32GB 能摸 768P。
 
+### 公网访问（SSH 反向隧道）
+
+容器没有公网端口时，可以把本地 ComfyUI（8188）经 SSH 反向隧道映射到一台公网服务器：
+
+```bash
+REMOTE_HOST=1.2.3.4 REMOTE_PASS='密码' bash scripts/ssh_tunnel.sh start   # 后台守护，断线 5 秒自动重连
+bash scripts/ssh_tunnel.sh status | stop | restart
+```
+
+之后访问 `http://<公网服务器>:18188`。端口可用 `REMOTE_BIND_PORT` / `LOCAL_PORT` 改。公网服务器 sshd 需开 `GatewayPorts yes`（或 `clientspecified`），否则只绑定在服务器的 127.0.0.1；脚本会自动安装缺失的 ssh / sshpass。
+
 ### 额外自定义节点
 
 ```bash
