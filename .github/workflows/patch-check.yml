@@ -21,7 +21,7 @@ jobs:
           git clone --filter=blob:none https://github.com/Comfy-Org/ComfyUI.git comfy
           cd comfy
           case "${{ matrix.target }}" in
-            pinned)     ref=61e524bdba7a4e193b45c2697f1af83c1beb86d6 ;;
+            pinned)     ref=03d670becbc2b198c19a150d436eeea2b853e2a0 ;;
             latest-tag) ref=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1) ;;
             master)     ref=origin/master ;;
           esac
@@ -30,11 +30,11 @@ jobs:
       - name: git apply --check
         run: |
           cd comfy
-          if git apply --check ../assets/patches/comfyui-61e524bd.patch; then
+          if git apply --check ../assets/patches/comfyui-03d670be.patch; then
             echo "✅ clean apply"
           else
             echo "::warning::patch no longer applies cleanly; trying 3-way"
-            git apply --3way ../assets/patches/comfyui-61e524bd.patch || true
+            git apply --3way ../assets/patches/comfyui-03d670be.patch || true
             git diff --name-only --diff-filter=U
             exit 1
           fi

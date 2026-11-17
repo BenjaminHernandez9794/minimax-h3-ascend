@@ -3,6 +3,14 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-17（ComfyUI v0.45.5）
+
+- `setup.sh` 的 `latest` 档升级到 **ComfyUI v0.45.5**（`03d670be`），默认切到 fork 分支 `ascend-npu-v0.45.5`；离线补丁 `assets/patches/comfyui-03d670be.patch`（与分支逐字节一致）。v0.45 起上游原生支持 MiniMax-H3-Image、Qwen 3.x 提速；上游把 DiT 块循环抽成 `_run_blocks`，昇腾补丁的序列并行切片随之移入，H3-Image 也可多卡序列并行。CPU 单测与旧分支结果一致，**910B 真机待测**。
+- 新增 `--profile v0.44`（旧 latest：`61e524bd` + `ascend-npu-v0.44`），新版出问题时可一键回退：`bash setup.sh --profile v0.44`。
+- CI `patch-check` 的 pinned 目标改为 v0.45.5 与新补丁。
+- `setup.sh` 新增可选档 `--torch 2.9`（等同 `TORCH_VERSION=2.9`）：CANN 9.1.x 下装 torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0，即昇腾开源官方 [ComfyUI 快速开始](https://ascend.github.io/docs/sources/comfyui/quick_start.html) 实测组合（配套表里 9.1 对应的是 post6/post8，这里按 ComfyUI 实测优先用 post2，`TORCH_NPU_VERSION` 可覆盖）。已装其他版本 torch 时会连同 torch_npu、torchvision 一起切换，装完校验版本；旧 torchaudio 由第 4 步原有逻辑处理（import 崩则卸载）。**默认仍是 torch 2.7.1，不加参数行为不变。**
+- 注意：torch ≥ 2.8 只是 ComfyUI DynamicVRAM 的前提之一；ComfyUI 的 `dynamic_vram_supported()` 只对 NVIDIA / AMD 返回真，昇腾上不会自动启用（需 `--enable-dynamic-vram` 且 comfy-aimdo 支持 NPU，未验证）。
+
 ## 2026-11-12
 
 - 新增模型清单 `model_lists/fisher_pose.txt`：Fisher Pose 工作流所需模型，文件名与工作流默认一致。默认正面摆姿（Qwen Image 2.1 INT8 + Qwen3-VL 8B bf16 + VAE + VNCCS LoRA，约 25.6GB）；`angle` 加换机位（AnyAngle + TripoSplat 一套，约 3.9GB）；`te_int8` 文本编码器换 INT8（需在 CLIPLoader 改选）。

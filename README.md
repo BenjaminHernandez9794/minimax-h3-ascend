@@ -101,7 +101,7 @@ bash scripts/download_models.sh --dry-run                   # 只列出将要下
 bash scripts/download_models.sh --verify                    # 下完按 HF 的 sha256 校验
 ```
 
-**前提**：昇腾环境已装 CANN ≥ 9.0.0（如 CANNLab 镜像自带）。没有 torch / torch_npu 时 `setup.sh` 会读取 CANN 版本自动装配套的版本（默认 torch 2.7.1，可用 `TORCH_VERSION=2.9.0` 换，或 `TORCH_NPU_VERSION` 直接指定）；系统 Python 只读时自动装到用户目录。依赖安装默认用 uv 加速（没有 uv 时自动安装，`--no-install-uv` 可不装直接用 pip；失败自动回退 pip，`USE_UV=0` 完全关闭）；默认 pip 源为华为云，`PIP_MIRROR` 可换。
+**前提**：昇腾环境已装 CANN ≥ 9.0.0（如 CANNLab 镜像自带）。没有 torch / torch_npu 时 `setup.sh` 会读取 CANN 版本自动装配套的版本（默认 torch 2.7.1；`--torch 2.9` 为可选档，装昇腾官方 [ComfyUI 快速开始](https://ascend.github.io/docs/sources/comfyui/quick_start.html) 验证的 CANN 9.1 + torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0，已装其他版本会自动切换；`TORCH_NPU_VERSION` / `TORCHVISION_VERSION` 可直接指定）；系统 Python 只读时自动装到用户目录。依赖安装默认用 uv 加速（没有 uv 时自动安装，`--no-install-uv` 可不装直接用 pip；失败自动回退 pip，`USE_UV=0` 完全关闭）；默认 pip 源为华为云，`PIP_MIRROR` 可换。
 脚本会**自动识别 910B/910C 的卡数**（1/2/4/8）并同步到工作流配置。
 
 > **用 N 卡（RTX 4090 / 5090）？** 请看**专门的 N 卡仓库**
@@ -300,13 +300,14 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 2. **torchaudio**：legacy 版必须与 torch 同版本；latest 版已不再强依赖（setup.sh 自动处理）
 3. **aarch64 需 `LD_PRELOAD=libgomp.so.1`**（启动脚本已内置）
 4. **ComfyUI 版本与补丁成对锁定**，用 `COMFY_PROFILE` 选择：
-   - `latest`（默认）：`61e524bd`（v0.44.0+37）+ `assets/patches/comfyui-61e524bd.patch`（**CPU 单测通过，910B 待实测**）
+   - `latest`（默认）：`03d670be`（v0.45.5）+ `assets/patches/comfyui-03d670be.patch`（**CPU 单测通过，910B 待实测**）
+   - `v0.44`：`61e524bd`（v0.44.0+37）+ `assets/patches/comfyui-61e524bd.patch`（上一版 latest，910B 已跑通出图，新版有问题时回退用）
    - `legacy`：`bd34f338`（v0.32.0）+ `assets/patches/comfyui-bd34f338.patch`（910B 已实测）
    - 例：`COMFY_PROFILE=legacy bash setup.sh`；INT8 路径可用 `COMFY_NPU_INT8_PATCH=0` 切到 comfy-kitchen 原生 Ascend 后端
-   - ComfyUI 源码默认从 fork [BenjaminHernandez9794/ComfyUI-npu](https://github.com/BenjaminHernandez9794/ComfyUI-npu) 拉取，并**直接切到已适配 NPU 的分支**：latest → `ascend-npu-v0.44`，legacy → `ascend-npu-v0.32`（可用 `COMFY_BRANCH` 指定其他分支）
+   - ComfyUI 源码默认从 fork [BenjaminHernandez9794/ComfyUI-npu](https://github.com/BenjaminHernandez9794/ComfyUI-npu) 拉取，并**直接切到已适配 NPU 的分支**：latest → `ascend-npu-v0.45.5`，v0.44 → `ascend-npu-v0.44`，legacy → `ascend-npu-v0.32`（可用 `COMFY_BRANCH` 指定其他分支）
    - `COMFY_REPO=<git 地址>` 可换成官方或其他镜像；仓库里没有对应分支时自动退回「固定 commit + `assets/patches/` 补丁」，也可用 `COMFY_USE_PATCH=1` 强制走补丁
    - `COMFY_HOME` 下已有 ComfyUI 仓库时**不重新克隆**，只切换到对应分支并更新：本地没有自己的提交就直接对齐远端；有本地提交则先备份为 `<分支>-backup-<时间>` 再对齐；未提交改动自动 `git stash`。目录存在但不是 git 仓库时报错退出
-   - `--gh-proxy URL`（或环境变量 `GH_PROXY`）：前缀式 GitHub 代理，如 `bash setup.sh --gh-proxy https://gp.1314510.xyz`，实际拉取 `URL/https://github.com/...`；代理不通时自动改直连。`--profile latest|legacy` 等同 `COMFY_PROFILE`，`bash setup.sh -h` 查看用法
+   - `--gh-proxy URL`（或环境变量 `GH_PROXY`）：前缀式 GitHub 代理，如 `bash setup.sh --gh-proxy https://gp.1314510.xyz`，实际拉取 `URL/https://github.com/...`；代理不通时自动改直连。`--profile latest|v0.44|legacy` 等同 `COMFY_PROFILE`，`bash setup.sh -h` 查看用法
    - 旧版 setup.sh 是把补丁直接打在工作区里的，重跑新版时会先 `git stash` 保存这些改动再切分支
 5. 昇腾只选 `int8_convrot` 系列权重；**NVFP4 / FP8 / SLA 稀疏注意力是 N 卡专属**。
    顺带纠正一个**跨平台**结论（2026-10-13 N 卡真机验证）：**H3 的 GGUF 文本编码器在所有平台都不可用**
