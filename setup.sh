@@ -2,7 +2,7 @@
 # =============================================================
 # MiniMax-H3 on Ascend 一键部署脚本
 # 适用: CANNLab / 昇腾 910B / 910C 容器与环境
-# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--torch 2.7|2.9] [--nodes LIST] [--no-install-uv]
+# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|v0.44|legacy] [--torch 2.7|2.9] [--nodes LIST] [--no-install-uv]
 #   --comfy-home DIR ComfyUI 安装目录（默认 /mnt/workspace/ComfyUI，也可用环境变量 COMFY_HOME）；
 #                   会记到仓库里的 .comfy_home，之后下载模型/装节点/启动脚本自动沿用
 #   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
-        --profile)    COMFY_PROFILE="${2:?--profile 需要 latest 或 legacy}"; shift 2 ;;
+        --profile)    COMFY_PROFILE="${2:?--profile 需要 latest / v0.44 / legacy}"; shift 2 ;;
         --profile=*)  COMFY_PROFILE="${1#*=}"; shift ;;
         --comfy-home)   COMFY_HOME="${2:?--comfy-home 需要一个目录}"; shift 2 ;;
         --comfy-home=*) COMFY_HOME="${1#*=}"; shift ;;
@@ -52,11 +52,18 @@ COMFY_HOME="$(cd "$(dirname "$COMFY_HOME")" && pwd)/$(basename "$COMFY_HOME")"
 echo "$COMFY_HOME" > "$REPO_DIR/.comfy_home"
 echo "ComfyUI 目录: $COMFY_HOME"
 # COMFY_PROFILE 选择 ComfyUI 版本与对应补丁:
-#   latest (默认): ComfyUI 61e524bd (v0.44.0 之后 37 个提交, 2026-11) + 重新 rebase 的补丁
+#   latest (默认): ComfyUI v0.45.5 (03d670be, 2026-11) + 重新 rebase 的补丁（分支 ascend-npu-v0.45.5）
+#   v0.44        : ComfyUI 61e524bd (v0.44.0 之后 37 个提交) + 补丁（分支 ascend-npu-v0.44，上一版 latest，留作回退）
 #   legacy       : ComfyUI bd34f338 (v0.32.0, 2026-08) + 原始 Ascend-SACT 补丁 (910B 已实测)
 COMFY_PROFILE="${COMFY_PROFILE:-latest}"
 case "$COMFY_PROFILE" in
     latest)
+        COMFY_COMMIT="03d670becbc2b198c19a150d436eeea2b853e2a0"
+        DEFAULT_BRANCH="ascend-npu-v0.45.5"
+        PATCH_FILE="$REPO_DIR/assets/patches/comfyui-03d670be.patch"
+        ;;
+    v0.44|v044)
+        COMFY_PROFILE=v0.44
         COMFY_COMMIT="61e524bdba7a4e193b45c2697f1af83c1beb86d6"
         DEFAULT_BRANCH="ascend-npu-v0.44"
         PATCH_FILE="$REPO_DIR/assets/patches/comfyui-61e524bd.patch"
@@ -66,11 +73,11 @@ case "$COMFY_PROFILE" in
         DEFAULT_BRANCH="ascend-npu-v0.32"
         PATCH_FILE="$REPO_DIR/assets/patches/comfyui-bd34f338.patch"
         ;;
-    *) echo "!! 未知 COMFY_PROFILE=$COMFY_PROFILE (可选 latest / legacy)"; exit 1 ;;
+    *) echo "!! 未知 COMFY_PROFILE=$COMFY_PROFILE (可选 latest / v0.44 / legacy)"; exit 1 ;;
 esac
-# ComfyUI 源码仓库：默认本项目维护的 fork（含昇腾补丁分支 ascend-npu-v0.44），可用 COMFY_REPO 覆盖
+# ComfyUI 源码仓库：默认本项目维护的 fork（含昇腾补丁分支 ascend-npu-v0.45.5 等），可用 COMFY_REPO 覆盖
 COMFY_REPO="${COMFY_REPO:-https://github.com/BenjaminHernandez9794/ComfyUI-npu.git}"
-# 适配 NPU 的分支（已包含昇腾补丁）。latest → ascend-npu-v0.44，legacy → ascend-npu-v0.32；可用 COMFY_BRANCH 覆盖。
+# 适配 NPU 的分支（已包含昇腾补丁）。latest → ascend-npu-v0.45.5，v0.44 → ascend-npu-v0.44，legacy → ascend-npu-v0.32；可用 COMFY_BRANCH 覆盖。
 # 若仓库里没有该分支（例如 COMFY_REPO 指向官方），自动退回「固定 commit + 打补丁」；也可用 COMFY_USE_PATCH=1 强制走补丁。
 COMFY_BRANCH="${COMFY_BRANCH:-$DEFAULT_BRANCH}"
 COMFY_USE_PATCH="${COMFY_USE_PATCH:-0}"
