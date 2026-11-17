@@ -75,6 +75,20 @@ for _name in libGLdispatch.so.0 libgomp.so.1; do
 done
 [ -n "$PRELOAD" ] && export LD_PRELOAD="$PRELOAD"
 
+# --- Comfyroll 的 CR Select Font 写死读 /usr/share/fonts/truetype ---
+#   install_nodes.sh 安装时会建这个目录，但很多容器重启后 /tmp 以外会被重置，目录又没了，
+#   前端加载节点列表就报 FileNotFoundError。每次启动前补一次，链接 Comfyroll 自带的 ttf。
+CR_FONTS="$COMFY_HOME/custom_nodes/ComfyUI_Comfyroll_CustomNodes/fonts"
+SYS_FONTS=/usr/share/fonts/truetype
+if [ -d "$CR_FONTS" ] && [ "$(uname -s)" = Linux ] && [ ! -d "$SYS_FONTS" ]; then
+    if mkdir -p "$SYS_FONTS" 2>/dev/null; then
+        for f in "$CR_FONTS"/*.ttf; do [ -e "$f" ] && ln -sf "$f" "$SYS_FONTS/"; done
+        echo "已补建 $SYS_FONTS 并链接 Comfyroll 字体（修复 CR Select Font 报错）"
+    else
+        echo "提示: 缺少 $SYS_FONTS 且无权限创建，CR Select Font 节点会报错（其它节点不受影响）"
+    fi
+fi
+
 export HCCL_OP_EXPANSION_MODE="${HCCL_OP_EXPANSION_MODE:-AIV}"
 # INT8 线性层: 1 = 补丁内置 npu_quant_matmul 路径 (910B 实测)；0 = 交给 comfy-kitchen 原生 Ascend 后端
 export COMFY_NPU_INT8_PATCH="${COMFY_NPU_INT8_PATCH:-1}"

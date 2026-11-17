@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 export.tgz
 .comfy_home
+ssh_tunnel.log
