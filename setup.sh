@@ -2,19 +2,21 @@
 # =============================================================
 # MiniMax-H3 on Ascend 一键部署脚本
 # 适用: CANNLab / 昇腾 910B / 910C 容器与环境
-# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--nodes LIST] [--no-install-uv]
+# 用法: bash setup.sh [--comfy-home DIR] [--gh-proxy URL] [--profile latest|legacy] [--torch 2.7|2.9] [--nodes LIST] [--no-install-uv]
 #   --comfy-home DIR ComfyUI 安装目录（默认 /mnt/workspace/ComfyUI，也可用环境变量 COMFY_HOME）；
 #                   会记到仓库里的 .comfy_home，之后下载模型/装节点/启动脚本自动沿用
 #   --gh-proxy URL  GitHub 加速代理（前缀式，如 https://gp.1314510.xyz），
 #                   拉取时用 URL/https://github.com/...；也可用环境变量 GH_PROXY
 #   没有 torch / torch_npu 时按 CANN 版本自动装配套版本（默认 torch 2.7.1，TORCH_VERSION 可改）
+#   --torch 2.9     可选档：装 torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0（CANN 9.1，
+#                   昇腾官方 ComfyUI 快速开始文档验证的组合）；已装其他版本时会切换过去。默认仍是 2.7.1
 #   --nodes LIST    顺带安装额外自定义节点（逗号分隔，也可用环境变量 CUSTOM_NODES），如
 #                   qwen21 / qwen21-full / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
 #   --no-install-uv 没有 uv 时不自动安装、直接用 pip（默认自动装 uv 加速；也可用 UV_AUTO_INSTALL=0，USE_UV=0 则完全不用 uv）
 # =============================================================
 set -euo pipefail
 
-usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,/^# =====/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
     case "$1" in
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
@@ -23,6 +25,8 @@ while [ $# -gt 0 ]; do
         --profile=*)  COMFY_PROFILE="${1#*=}"; shift ;;
         --comfy-home)   COMFY_HOME="${2:?--comfy-home 需要一个目录}"; shift 2 ;;
         --comfy-home=*) COMFY_HOME="${1#*=}"; shift ;;
+        --torch)      TORCH_VERSION="${2:?--torch 需要版本，如 2.9 或 2.7.1}"; shift 2 ;;
+        --torch=*)    TORCH_VERSION="${1#*=}"; shift ;;
         --nodes)      CUSTOM_NODES="${2:?--nodes 需要节点列表}"; shift 2 ;;
         --nodes=*)    CUSTOM_NODES="${1#*=}"; shift ;;
         --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
@@ -162,9 +166,34 @@ pip_boot() {  # 系统 Python 只读时自动加 --user（此时走 pip，uv 不
     pip_install --prefer-binary --timeout 60 --retries 3 ${extra[@]+"${extra[@]}"} "$@"
 }
 
+# --torch / TORCH_VERSION 简写：2.9 → 2.9.0，2.7 → 2.7.1 …（显式指定时，已装的不同版本会被切换）
+TORCH_EXPLICIT=0
+if [ -n "${TORCH_VERSION:-}" ]; then
+    TORCH_EXPLICIT=1
+    case "$TORCH_VERSION" in
+        2.7) TORCH_VERSION=2.7.1 ;;
+        2.8|2.9|2.10|2.11|2.12) TORCH_VERSION="${TORCH_VERSION}.0" ;;
+    esac
+fi
+# 与 torch 配套的 torchvision（只在显式选档时装；默认 2.7.1 档行为不变，由第 4 步按约束解析）
+torchvision_for() {
+    case "$1" in
+        2.7.1) echo 0.22.1 ;; 2.8.0) echo 0.23.0 ;; 2.9.0) echo 0.24.0 ;;
+        2.10.0) echo 0.25.0 ;; 2.11.0) echo 0.26.0 ;; *) echo "" ;;
+    esac
+}
+
 HAVE_TORCH=0; HAVE_NPU=0
 python3 -c "import torch" >/dev/null 2>&1 && HAVE_TORCH=1
 [ "$HAVE_TORCH" = 1 ] && python3 -c "import torch, torch_npu" >/dev/null 2>&1 && HAVE_NPU=1
+TORCH_SWITCH=0
+if [ "$HAVE_TORCH" = 1 ] && [ "$TORCH_EXPLICIT" = 1 ]; then
+    CUR_TV=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
+    if [ "$CUR_TV" != "$TORCH_VERSION" ]; then
+        echo "已装 torch $CUR_TV，按 --torch/TORCH_VERSION 切换到 torch $TORCH_VERSION（连同 torch_npu、torchvision）"
+        HAVE_TORCH=0; HAVE_NPU=0; TORCH_SWITCH=1
+    fi
+fi
 if [ "$HAVE_NPU" = 0 ]; then
     CANN_VER=$(cann_version)
     PIP_MIRROR_BOOT="${PIP_MIRROR:-https://repo.huaweicloud.com/repository/pypi/simple}"
@@ -175,7 +204,13 @@ if [ "$HAVE_NPU" = 0 ]; then
         TV="${TORCH_VERSION:-2.7.1}"
         echo "未检测到 torch（CANN $CANN_VER），自动安装 torch $TV + 配套 torch_npu"
     fi
-    NPU_VER="${TORCH_NPU_VERSION:-$(pick_torch_npu "$CANN_VER" "$TV")}"
+    NPU_VER="${TORCH_NPU_VERSION:-}"
+    if [ -z "$NPU_VER" ] && [ "$TV" = "2.9.0" ] && [[ "$CANN_VER" == 9.1* ]]; then
+        # 昇腾开源官方 ComfyUI 快速开始文档实测组合：CANN 9.1.0 + torch 2.9.0 + torch_npu 2.9.0.post2
+        # https://ascend.github.io/docs/sources/comfyui/quick_start.html
+        NPU_VER=2.9.0.post2
+    fi
+    NPU_VER="${NPU_VER:-$(pick_torch_npu "$CANN_VER" "$TV")}"
     if [ -z "$NPU_VER" ]; then
         echo "  !! 配套表里没有 CANN $CANN_VER + torch $TV 的组合，改装 torch_npu==${TV}.* 的最新版（可能与 CANN 不配套）"
         echo "     可用 TORCH_VERSION / TORCH_NPU_VERSION 手动指定，配套表见 https://github.com/Ascend/pytorch/blob/master/COMPATIBILITY.md"
@@ -195,6 +230,20 @@ if [ "$HAVE_NPU" = 0 ]; then
         fi
     fi
     pip_boot -i "$PIP_MIRROR_BOOT" "$NPU_SPEC" || { echo "!! ${NPU_SPEC} 安装失败"; exit 1; }
+    # 显式选档时把配套 torchvision 一起装上（官方文档做法），免得第 4 步解析器去动 torch
+    TVV="${TORCHVISION_VERSION:-}"
+    [ -z "$TVV" ] && [ "$TORCH_EXPLICIT" = 1 ] && TVV=$(torchvision_for "$TV")
+    if [ -n "$TVV" ]; then
+        echo "  → torchvision==${TVV}"
+        if [ "$(uname -m)" = "x86_64" ]; then
+            pip_boot --index-url https://download.pytorch.org/whl/cpu "torch==${TV}+cpu" "torchvision==${TVV}+cpu" \
+                || pip_boot -i "$PIP_MIRROR_BOOT" "torch==${TV}" "torchvision==${TVV}" \
+                || { echo "!! torchvision ${TVV} 安装失败"; exit 1; }
+        else
+            pip_boot -i "$PIP_MIRROR_BOOT" "torch==${TV}" "torchvision==${TVV}" \
+                || { echo "!! torchvision ${TVV} 安装失败"; exit 1; }
+        fi
+    fi
     # CANN 编译算子时需要的 Python 依赖（缺了首次运行会报 No module named 'decorator' / 'attrs' 等）
     pip_boot -i "$PIP_MIRROR_BOOT" pyyaml attrs decorator psutil absl-py cloudpickle ml-dtypes scipy tornado \
         || echo "  (CANN 的 Python 依赖部分没装上，若首次推理报缺模块再手动装)"
@@ -205,6 +254,10 @@ import torch, torch_npu
 print(f"torch {torch.__version__} / torch_npu {torch_npu.__version__} / npu_available={torch.npu.is_available()}")
 assert torch.npu.is_available(), "torch_npu 不可用，请检查 CANN 与 torch_npu 版本配套（或驱动/固件）"
 PY
+if [ "$TORCH_EXPLICIT" = 1 ]; then
+    GOT_TV=$(python3 -c "import torch; print(torch.__version__.split('+')[0])")
+    [ "$GOT_TV" = "$TORCH_VERSION" ] || { echo "!! 要求 torch $TORCH_VERSION，实际是 $GOT_TV"; exit 1; }
+fi
 
 echo "=== [2/6] 获取 ComfyUI (profile=$COMFY_PROFILE) ==="
 echo "仓库: $COMFY_REPO"

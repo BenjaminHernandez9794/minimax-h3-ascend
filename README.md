@@ -101,7 +101,7 @@ bash scripts/download_models.sh --dry-run                   # 只列出将要下
 bash scripts/download_models.sh --verify                    # 下完按 HF 的 sha256 校验
 ```
 
-**前提**：昇腾环境已装 CANN ≥ 9.0.0（如 CANNLab 镜像自带）。没有 torch / torch_npu 时 `setup.sh` 会读取 CANN 版本自动装配套的版本（默认 torch 2.7.1，可用 `TORCH_VERSION=2.9.0` 换，或 `TORCH_NPU_VERSION` 直接指定）；系统 Python 只读时自动装到用户目录。依赖安装默认用 uv 加速（没有 uv 时自动安装，`--no-install-uv` 可不装直接用 pip；失败自动回退 pip，`USE_UV=0` 完全关闭）；默认 pip 源为华为云，`PIP_MIRROR` 可换。
+**前提**：昇腾环境已装 CANN ≥ 9.0.0（如 CANNLab 镜像自带）。没有 torch / torch_npu 时 `setup.sh` 会读取 CANN 版本自动装配套的版本（默认 torch 2.7.1；`--torch 2.9` 为可选档，装昇腾官方 [ComfyUI 快速开始](https://ascend.github.io/docs/sources/comfyui/quick_start.html) 验证的 CANN 9.1 + torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0，已装其他版本会自动切换；`TORCH_NPU_VERSION` / `TORCHVISION_VERSION` 可直接指定）；系统 Python 只读时自动装到用户目录。依赖安装默认用 uv 加速（没有 uv 时自动安装，`--no-install-uv` 可不装直接用 pip；失败自动回退 pip，`USE_UV=0` 完全关闭）；默认 pip 源为华为云，`PIP_MIRROR` 可换。
 脚本会**自动识别 910B/910C 的卡数**（1/2/4/8）并同步到工作流配置。
 
 > **用 N 卡（RTX 4090 / 5090）？** 请看**专门的 N 卡仓库**
