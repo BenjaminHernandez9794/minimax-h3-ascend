@@ -145,7 +145,7 @@ bash scripts/install_nodes.sh --list    # 可选名称与别名
 
 **NPU 监控**：四个别名（`qwen21`、`qwen21-full`、`moss`、`moss-full`）都包含 `npumon`（ComfyuUI_npu_monitor），界面上出现可拖动的悬浮栏，实时显示 NPU 显存、AI Core 占用、温度、功耗和系统 RAM；还有一个 `NPU Monitor (Stats)` 节点（`utils/NPU Monitor`）可在某步执行后记录占用。数据来自 `npu-smi info`，不在 PATH 时设 `NPU_SMI_PATH`；依赖仅 psutil。单独装：`bash scripts/install_nodes.sh npumon`。 Fisher Pose 的模型：`bash scripts/download_models.sh -l fisher_pose.txt`（正面摆姿约 25.6GB，`--with angle` 加换机位约 3.9GB，`--with te_int8` 文本编码器换 INT8 省 8GB）。
 
-**换装 / 发型 / 姿势 / 捏人工作流**（Qwen 2.1 四图参考编辑）：`qwen21-full` 已包含它额外要的 `t8cache`（T8 Block Cache / Spectrum / Sage，Sage 在 NPU 上自动退回原生注意力）和 `derfuu`（DF_Text_Box）。模型：`bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt`（约 30.8GB，含孤海提示词优化的 GGUF；`--without pe_gguf` 约 17.3GB）。提示词优化节点需 `llama-cpp-python`（昇腾上 CPU 跑，aarch64 要源码编译），不装就把该节点旁路。工作流里的 `GoohaiImageLibrary` 图库节点孤海公开仓库还没有，可换成 LoadImage 自己传参考图。
+**换装 / 发型 / 姿势 / 捏人工作流**（Qwen 2.1 四图参考编辑）：`qwen21-full` 已包含它额外要的 `t8cache`（T8 Block Cache / Spectrum / Sage，Sage 在 NPU 上自动退回原生注意力）和 `derfuu`（DF_Text_Box）。模型：`bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt`（约 30.8GB，含孤海提示词优化的 GGUF；`--without pe_gguf` 约 17.3GB）。提示词优化节点需 `llama-cpp-python`（昇腾上 CPU 跑，aarch64 要源码编译），不装就把该节点旁路。工作流里的 `GoohaiImageLibrary`（Goohai 加载图库）随本仓库放在 `nodes/Goohai-ImageLibrary-Comfyui/`，`qwen21-full` 或 `install_nodes.sh ghil` 会复制到 `custom_nodes`（保留已有的收藏和随机分类设置）；图库素材不在仓库里，需放到 `models/GHIL/{costume,pose,hair,portrait}`，结构见该节点 README，只用「上传」模式可以不放。
 
 ## 📦 模型清单（含审查状态 / 硬件要求 / 测试状态）
 
@@ -283,6 +283,7 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 │   ├── driver_grid.py          # 长片流水线（尾帧接首帧 + 自动拼接）
 │   ├── concat.py / 切九宫格.py  # 拼接 / 分镜切图
 │   └── ...
+├── nodes/                      # 随仓库分发的自定义节点（Goohai-ImageLibrary-Comfyui）
 ├── model_lists/                # 模型下载清单（ascend.txt / nvidia.txt，格式见其 README）
 ├── workflows/                  # 10 个工作流 JSON
 ├── assets/                     # 昇腾适配补丁 + 验证版节点 + 演示图

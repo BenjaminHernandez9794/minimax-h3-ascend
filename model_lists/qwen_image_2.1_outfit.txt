@@ -21,8 +21,8 @@
 #   T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8（BlockCache / Spectrum / Sage，Sage 在 NPU 上自动退回原生注意力）、
 #   ComfyUI-Easy-Use（easy seed / easy promptLine）、ComfyUI_Comfyroll_CustomNodes（CR Text Concatenate）、
 #   Derfuu_ComfyUI_ModdedNodes（DF_Text_Box）
-#   另：「GoohaiImageLibrary」图库节点（人像 / 服装 / 姿势 / 发型选图）目前孤海公开仓库里还没有，需要作者的整合包；
-#       没有时可把四个图库节点换成 LoadImage 自己上传参考图。
+#   GoohaiImageLibrary（Goohai 加载图库）随本仓库在 nodes/Goohai-ImageLibrary-Comfyui，qwen21-full 会装；
+#       它的图库素材不在本清单，需放到 models/GHIL/{costume,pose,hair,portrait}（见该节点 README），只用「上传」模式可不放。
 
 #@default pe_gguf
 

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GooHai · 服装图库</title>
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="/ghil/costume/ui/style.css">
+  <link rel="stylesheet" href="/ghil/costume/ui/actions.css">
+  <script src="/ghil/costume/ui/gallery.mjs" type="module"></script>
+</head>
+<body class="ghil-costume">
+  <main>
+    <section class="library" aria-label="服装图库">
+      <div class="ghil-category-row"><div id="categories" class="categories" aria-label="服装分类"></div><button id="favorites" class="ghil-favorite-filter" aria-pressed="false">收藏 0</button></div>
+      <div class="toolbar"><select id="subcategory" aria-label="小分类" hidden><option value="">全部</option></select><label class="search"><span>搜索</span><input id="q" type="search" placeholder="试试 蕾丝、牛仔、白色 或 SPR-0001" autocomplete="off"><kbd>/</kbd></label><button id="reset">重置筛选</button><div class="ghil-random-controls"><button id="random-settings" class="ghil-random-settings" type="button" title="选择随机包含的分类" aria-label="选择随机包含的分类"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m9 3-.5 2.4-1.4.8-2.3-.7-3 5.1 1.8 1.6v1.6l-1.8 1.6 3 5.1 2.3-.7 1.4.8.5 2.4h6l.5-2.4 1.4-.8 2.3.7 3-5.1-1.8-1.6v-1.6l1.8-1.6-3-5.1-2.3.7-1.4-.8L15 3Z" transform="translate(0 -1) scale(1 .95)"/><circle cx="12" cy="12" r="3"/></svg></button><label class="ghil-random-toggle">随机<input id="random-toggle" type="checkbox" role="switch"></label><button id="shuffle" class="ghil-shuffle" type="button" title="随机排序当前分类" aria-label="随机排序当前分类"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 30 10 16 18 2 10Z" fill="#f6be48"/><path d="M2 10 16 18 16 30 2 22Z" fill="#9b6fe8"/><path d="M16 18 30 10 30 22 16 30Z" fill="#36b9c5"/><ellipse cx="16" cy="10" rx="3" ry="1.8" fill="white"/><ellipse cx="7" cy="16" rx="1.7" ry="2.2" fill="white"/><ellipse cx="11" cy="24" rx="1.7" ry="2.2" fill="white"/><ellipse cx="25" cy="17" rx="1.7" ry="2.2" fill="white"/><ellipse cx="21" cy="25" rx="1.7" ry="2.2" fill="white"/></svg></button></div></div>
+      <div class="result-line"><h2 id="section-title">全部服装</h2><p id="status" role="status" aria-live="polite">正在加载数据…</p></div>
+      <div id="grid" class="grid"></div><p id="empty" hidden>没有找到匹配的服装。试试更短的关键词，或重置筛选。</p><div id="sentinel" style="height:1px" aria-hidden="true" hidden></div>
+    </section>
+  </main>
+  <dialog id="viewer" aria-labelledby="detail-title"><div class="detail"><div class="picture"><img id="large" alt=""><p id="image-status" role="status"></p></div><div class="detail-info"><button id="close" class="close" aria-label="关闭大图">×</button><p id="detail-cat" class="detail-cat"></p><h2 id="detail-title"></h2><p id="position"></p><h3>服装关键词</h3><p id="tags"></p><details><summary>原始英文关键词</summary><p id="english"></p></details><div class="actions"><button id="use-costume" class="primary">使用此服装 → ComfyUI</button><button id="viewer-favorite" class="primary" type="button" aria-pressed="false">♡ 收藏</button><a id="open-original" target="_blank" rel="noopener">打开原图</a><button id="copy">复制 ID</button></div><div class="paging"><button id="prev">上一套</button><button id="next">下一套</button></div><small>← → 切换 · Esc 关闭</small></div></div></dialog>
+<dialog id="random-dialog" class="ghil-random-dialog"><form method="dialog"><h3>选择随机包含的分类</h3><div id="random-options" class="ghil-random-options"></div><menu><button value="cancel" type="submit">取消</button><button id="random-apply" value="default" type="submit">确定</button></menu></form></dialog>
+</body>
+</html>
