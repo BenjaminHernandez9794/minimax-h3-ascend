@@ -2,13 +2,16 @@
 # =============================================================
 # 安装额外的 ComfyUI 自定义节点（克隆/更新 + 装依赖，不会动预装的 torch / torch_npu）
 # 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--no-install-uv] [--list] <名称|别名|GitHub 地址> ...
-#   名称: goohai rgthree layerstyle easyuse comfyroll t8 encpng fisherpose npumon seedvr2（可用逗号分隔）
+#   名称: goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil encpng fisherpose npumon seedvr2（可用逗号分隔）
 #         t8     = T8 提示词增强（Qwen Image 2.1 / MiniMax-H3，可接 OpenAI 兼容 API）
+#         t8cache = T8 Qwen-Image 2.1 加速（Block Cache / Spectrum / Sage；Sage 只在 CUDA 上生效，NPU 上自动走原生注意力）
+#         derfuu = Derfuu ModdedNodes（DF_Text_Box 等文本/数值小节点）
+#         ghil   = Goohai 加载图库（GoohaiImageLibrary，人像/服装/姿势/发型选图；随本仓库 nodes/ 分发，素材另放 models/GHIL）
 #         encpng = ComfyUI-EncryptedPNG（AES-GCM 加密保存 / 解密加载图片）
 #         fisherpose = Fisher Pose（单/双人姿势编辑 + 换机位，配合 Qwen Image 2.1；照片识别姿势另需 controlnet_aux）
 #         npumon = ComfyUI NPU Monitor（可拖动悬浮栏：NPU 显存 / AI Core / 温度 / RAM，四个别名都包含）
 #   别名: qwen21      = goohai,rgthree,layerstyle,t8,encpng,fisherpose,npumon （Qwen-Image 2.1 整合工作流 + 提示词增强 + 加密保存 + 姿势）
-#         qwen21-full = qwen21 + easyuse,comfyroll      （连旁路分组里的节点一起装）
+#         qwen21-full = qwen21 + easyuse,comfyroll,t8cache,derfuu,ghil （连旁路分组里的节点、换装/发型/姿势/捏人工作流一起装）
 #         moss        = rgthree,easyuse,npumon          （MOSS-Image 整合工作流必需的；
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
 #                       SeedVR2 超分 / TE-Speed-MOSS 均为旁路可选，TE-Speed-MOSS 仅 Windows 不装）
@@ -18,7 +21,7 @@
 # =============================================================
 set -uo pipefail
 
-usage() { sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'; }
 
 declare -A NODE_URL=(
     [goohai]=https://github.com/goohai/Goohaitools-comfyui.git
@@ -28,13 +31,16 @@ declare -A NODE_URL=(
     [comfyroll]=https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git
     [seedvr2]=https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git
     [t8]=https://github.com/T8mars/comfyui-minimax-h3-prompt-enhancer-T8.git
+    [t8cache]=https://github.com/T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8.git
+    [derfuu]=https://github.com/Derfuu/Derfuu_ComfyUI_ModdedNodes.git
+    [ghil]=local:nodes/Goohai-ImageLibrary-Comfyui      # 本仓库自带，不走 git
     [encpng]=https://github.com/BenjaminHernandez9794/ComfyUI-EncryptedPNG.git
     [fisherpose]=https://github.com/Work-Fisher/ComfyUI-Fisher-Pose.git
     [npumon]=https://github.com/BenjaminHernandez9794/ComfyuUI_npu_monitor.git
 )
 declare -A NODE_ALIAS=(
     [qwen21]="goohai rgthree layerstyle t8 encpng fisherpose npumon"
-    [qwen21-full]="goohai rgthree layerstyle t8 encpng fisherpose npumon easyuse comfyroll"
+    [qwen21-full]="goohai rgthree layerstyle t8 encpng fisherpose npumon easyuse comfyroll t8cache derfuu ghil"
     [moss]="rgthree easyuse npumon"
     [moss-full]="rgthree easyuse npumon seedvr2"
 )
@@ -45,7 +51,7 @@ while [ $# -gt 0 ]; do
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
         --list)
-            for k in goohai rgthree layerstyle easyuse comfyroll t8 encpng fisherpose npumon seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
+            for k in goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil encpng fisherpose npumon seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
             for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
         --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
@@ -80,7 +86,7 @@ for it in "${ITEMS[@]}"; do
         for k in ${NODE_ALIAS[$it]}; do add_url "${NODE_URL[$k]}"; done
     elif [ -n "${NODE_URL[$it]:-}" ]; then
         add_url "${NODE_URL[$it]}"
-    elif [[ "$it" == https://* ]]; then
+    elif [[ "$it" == https://* || "$it" == local:* ]]; then
         add_url "$it"
     else
         echo "!! 未知节点: $it（可选: ${!NODE_URL[*]} ${!NODE_ALIAS[*]}，或 GitHub 地址）"; exit 1
@@ -89,8 +95,10 @@ done
 
 # 代理可用性只探测一次
 PROXY_OK=0
-if [ -n "$GH_PROXY" ]; then
-    if git ls-remote --heads "$GH_PROXY/${URLS[0]}" >/dev/null 2>&1; then PROXY_OK=1
+PROBE_URL=""
+for u in "${URLS[@]}"; do [[ "$u" == https://* ]] && { PROBE_URL="$u"; break; }; done
+if [ -n "$GH_PROXY" ] && [ -n "$PROBE_URL" ]; then
+    if git ls-remote --heads "$GH_PROXY/$PROBE_URL" >/dev/null 2>&1; then PROXY_OK=1
     else echo "!! 代理 $GH_PROXY 不可用，改为直连"; fi
 fi
 fetch_url() { if [ "$PROXY_OK" = 1 ] && [[ "$1" == https://github.com/* ]]; then echo "$GH_PROXY/$1"; else echo "$1"; fi; }
@@ -106,8 +114,29 @@ NEED_XIMGPROC=0
 for url in "${URLS[@]}"; do
     name=$(basename "$url" .git)
     dir="$NODES_DIR/$name"
-    src=$(fetch_url "$url")
     echo "--- $name"
+    if [[ "$url" == local:* ]]; then
+        # 本仓库 nodes/ 下自带的节点：覆盖代码，保留用户自己的收藏 / 随机分类设置
+        lsrc="$REPO_DIR/${url#local:}"
+        [ -d "$lsrc" ] || { echo "!! 找不到 $lsrc"; FAILED+=("$name"); continue; }
+        if [ -d "$dir/.git" ]; then echo "!! $dir 是 git 仓库，跳过（要换成本仓库版本请先删除它）"; FAILED+=("$name"); continue; fi
+        mkdir -p "$dir"
+        keep=/tmp/node_keep_$name; rm -rf "$keep"; mkdir -p "$keep"
+        for f in favorites.json random_categories.json; do [ -f "$dir/$f" ] && cp -p "$dir/$f" "$keep/"; done
+        cp -a "$lsrc/." "$dir/"
+        cp -p "$keep"/* "$dir/" 2>/dev/null || true
+        rm -rf "$keep"
+        echo "已安装（本仓库 ${url#local:}）"
+        if [ "$name" = Goohai-ImageLibrary-Comfyui ]; then
+            mkdir -p "$COMFY_HOME/models/GHIL"
+            if ! ls "$COMFY_HOME"/models/GHIL/*/data/*.json >/dev/null 2>&1; then
+                echo "提示: 图库素材还没放：需要 $COMFY_HOME/models/GHIL/{costume,pose,hair,portrait}/{data,img,thumbs}"
+                echo "      （目录结构见 nodes/Goohai-ImageLibrary-Comfyui/README.md；只用「上传」模式可以不放）"
+            fi
+        fi
+        continue
+    fi
+    src=$(fetch_url "$url")
     if [ -d "$dir/.git" ]; then
         git -C "$dir" remote set-url origin "$src"
         if git -C "$dir" pull -q --ff-only; then echo "已更新: $(git -C "$dir" log --oneline -1)"

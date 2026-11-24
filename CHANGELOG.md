@@ -5,6 +5,13 @@
 
 ## 2026-11-24
 
+- `install_nodes.sh`：新增 `t8cache`（T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8：QwenImage21BlockCacheT8 / SpectrumT8 / SageAttentionT8，Sage 只在 CUDA 上走，NPU 上自动用原生注意力）和 `derfuu`（Derfuu_ComfyUI_ModdedNodes：DF_Text_Box），并加进 `qwen21-full`。
+- 新增模型清单 `model_lists/qwen_image_2.1_outfit.txt`：「Qwen 2.1 换装、发型、姿势、捏人」工作流用的非 Turbo INT8 UNet + Qwen3-VL INT8 文本编码器 + VAE（约 17.3GB），默认带孤海 QwenImagePromptOptimizer 的 PE GGUF（`pe_gguf`，约 13.5GB，可 `--without pe_gguf`）。
+- 新增 `nodes/Goohai-ImageLibrary-Comfyui/`（GoohaiImageLibrary，Goohai 加载图库）：`install_nodes.sh` 新增 `ghil`（本仓库本地节点，复制到 `custom_nodes`，保留已有 `favorites.json` / `random_categories.json`），并加进 `qwen21-full`；首次安装会建 `models/GHIL` 并提示素材目录。
+- 新增 `scripts/check_models.sh`（`check_models.py`）：按模型清单（`-l`，标签规则同下载）或工作流（`-w`，界面 / API 格式、含子图）检查 `models` 缺什么，标出缺失 / 下载中（.part 进度）/ 空文件 / 目录错 / 旁路可选，并给出所在清单与补齐命令；GoohaiImageLibrary 会检查 `models/GHIL` 素材。只读，有问题退出码 1。
+
+## 2026-11-24
+
 - `install_nodes.sh`：新增 `npumon`（BenjaminHernandez9794/ComfyuUI_npu_monitor，可拖动悬浮栏显示 NPU 显存 / AI Core / 温度 / 功耗 / RAM，另有 `NPU Monitor (Stats)` 节点，依赖仅 psutil），加入 `qwen21`、`qwen21-full`、`moss`、`moss-full` 四个别名。
 
 ## 2026-11-23（ComfyUI v0.46.0）

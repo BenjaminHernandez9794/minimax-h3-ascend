@@ -101,6 +101,16 @@ bash scripts/download_models.sh --dry-run                   # 只列出将要下
 bash scripts/download_models.sh --verify                    # 下完按 HF 的 sha256 校验
 ```
 
+检查 `models` 缺什么（只读，不下载）：
+
+```bash
+bash scripts/check_models.sh                                 # model_lists/ 全部清单概览（-q 只看有问题的行）
+bash scripts/check_models.sh -l qwen_image_2.1_outfit.txt    # 某个清单，标签用法同下载（--with / --without / --lowvram / --all-tags）
+bash scripts/check_models.sh -w 工作流.json                   # 按工作流里各加载节点引用的模型检查（界面 / API 格式、子图都支持）
+```
+
+逐项标出 OK / 缺失 / 下载中（显示 .part 进度）/ 空文件 / 目录错（文件放进了别的模型目录，加载节点读不到）/ 可选（只有旁路节点用到）；工作流里的 GoohaiImageLibrary 也会检查 `models/GHIL` 图库素材。缺的文件会提示在哪个清单、给出补齐命令；有问题时退出码为 1。
+
 **前提**：昇腾环境已装 CANN ≥ 9.0.0（如 CANNLab 镜像自带）。没有 torch / torch_npu 时 `setup.sh` 会读取 CANN 版本自动装配套的版本（默认 torch 2.7.1；`--torch 2.9` 为可选档，装昇腾官方 [ComfyUI 快速开始](https://ascend.github.io/docs/sources/comfyui/quick_start.html) 验证的 CANN 9.1 + torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0，已装其他版本会自动切换；`TORCH_NPU_VERSION` / `TORCHVISION_VERSION` 可直接指定）；系统 Python 只读时自动装到用户目录。依赖安装默认用 uv 加速（没有 uv 时自动安装，`--no-install-uv` 可不装直接用 pip；失败自动回退 pip，`USE_UV=0` 完全关闭）；默认 pip 源为华为云，`PIP_MIRROR` 可换。
 脚本会**自动识别 910B/910C 的卡数**（1/2/4/8）并同步到工作流配置。
 
@@ -143,7 +153,9 @@ bash scripts/install_nodes.sh --list    # 可选名称与别名
 
 `qwen21` / `qwen21-full` 现在也包含 T8 提示词增强节点（Qwen Image 2.1 Prompt Enhancer，可选 OpenAI 兼容接口，留空时读 `OPENAI_BASE_URL` / `OPENAI_API_KEY`）和 ComfyUI-EncryptedPNG（AES-GCM 加密保存与解密加载，密码留空时读 `ENCPNG_PASSWORD`）。另含 Fisher Pose（单/双人姿势编辑 + 换机位；所需 VNCCS LoRA 等模型见其安装文档，照片识别姿势另需 comfyui_controlnet_aux）。单独装：`bash scripts/install_nodes.sh t8,encpng,fisherpose`。
 
-**NPU 监控**：四个别名（`qwen21`、`qwen21-full`、`moss`、`moss-full`）都包含 `npumon`（ComfyuUI_npu_monitor），界面上出现可拖动的悬浮栏，实时显示 NPU 显存、AI Core 占用、温度、功耗和系统 RAM；还有一个 `NPU Monitor (Stats)` 节点（`utils/NPU Monitor`）可在某步执行后记录占用。数据来自 `npu-smi info`，不在 PATH 时设 `NPU_SMI_PATH`；依赖仅 psutil。单独装：`bash scripts/install_nodes.sh npumon`。Fisher Pose 的模型：`bash scripts/download_models.sh -l fisher_pose.txt`（正面摆姿约 25.6GB，`--with angle` 加换机位约 3.9GB，`--with te_int8` 文本编码器换 INT8 省 8GB）。
+**NPU 监控**：四个别名（`qwen21`、`qwen21-full`、`moss`、`moss-full`）都包含 `npumon`（ComfyuUI_npu_monitor），界面上出现可拖动的悬浮栏，实时显示 NPU 显存、AI Core 占用、温度、功耗和系统 RAM；还有一个 `NPU Monitor (Stats)` 节点（`utils/NPU Monitor`）可在某步执行后记录占用。数据来自 `npu-smi info`，不在 PATH 时设 `NPU_SMI_PATH`；依赖仅 psutil。单独装：`bash scripts/install_nodes.sh npumon`。 Fisher Pose 的模型：`bash scripts/download_models.sh -l fisher_pose.txt`（正面摆姿约 25.6GB，`--with angle` 加换机位约 3.9GB，`--with te_int8` 文本编码器换 INT8 省 8GB）。
+
+**换装 / 发型 / 姿势 / 捏人工作流**（Qwen 2.1 四图参考编辑）：`qwen21-full` 已包含它额外要的 `t8cache`（T8 Block Cache / Spectrum / Sage，Sage 在 NPU 上自动退回原生注意力）和 `derfuu`（DF_Text_Box）。模型：`bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt`（约 30.8GB，含孤海提示词优化的 GGUF；`--without pe_gguf` 约 17.3GB）。提示词优化节点需 `llama-cpp-python`（昇腾上 CPU 跑，aarch64 要源码编译），不装就把该节点旁路。工作流里的 `GoohaiImageLibrary`（Goohai 加载图库）随本仓库放在 `nodes/Goohai-ImageLibrary-Comfyui/`，`qwen21-full` 或 `install_nodes.sh ghil` 会复制到 `custom_nodes`（保留已有的收藏和随机分类设置）；图库素材不在仓库里，需放到 `models/GHIL/{costume,pose,hair,portrait}`，结构见该节点 README，只用「上传」模式可以不放。
 
 ## 📦 模型清单（含审查状态 / 硬件要求 / 测试状态）
 
@@ -275,12 +287,14 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 ├── scripts/
 │   ├── dl_models.py            # 通用分片并行下载器（清单驱动，断点续传，sha256 校验）
 │   ├── download_models.sh      # 下载入口（-l 指定清单 / --with / --without / --lowvram）
+│   ├── check_models.sh         # 检查 models 缺什么（按清单或工作流，只读）
 │   ├── start_comfyui.sh        # 启动（自动识别卡数，内置 aarch64 修复）
 │   ├── set_npu_count.py        # 按实际卡数同步所有工作流
 │   ├── convert_wf.py           # ComfyUI 工作流 UI→API 转换
 │   ├── driver_grid.py          # 长片流水线（尾帧接首帧 + 自动拼接）
 │   ├── concat.py / 切九宫格.py  # 拼接 / 分镜切图
 │   └── ...
+├── nodes/                      # 随仓库分发的自定义节点（Goohai-ImageLibrary-Comfyui）
 ├── model_lists/                # 模型下载清单（ascend.txt / nvidia.txt，格式见其 README）
 ├── workflows/                  # 10 个工作流 JSON
 ├── assets/                     # 昇腾适配补丁 + 验证版节点 + 演示图
