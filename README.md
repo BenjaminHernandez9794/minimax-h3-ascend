@@ -143,7 +143,9 @@ bash scripts/install_nodes.sh --list    # 可选名称与别名
 
 `qwen21` / `qwen21-full` 现在也包含 T8 提示词增强节点（Qwen Image 2.1 Prompt Enhancer，可选 OpenAI 兼容接口，留空时读 `OPENAI_BASE_URL` / `OPENAI_API_KEY`）和 ComfyUI-EncryptedPNG（AES-GCM 加密保存与解密加载，密码留空时读 `ENCPNG_PASSWORD`）。另含 Fisher Pose（单/双人姿势编辑 + 换机位；所需 VNCCS LoRA 等模型见其安装文档，照片识别姿势另需 comfyui_controlnet_aux）。单独装：`bash scripts/install_nodes.sh t8,encpng,fisherpose`。
 
-**NPU 监控**：四个别名（`qwen21`、`qwen21-full`、`moss`、`moss-full`）都包含 `npumon`（ComfyuUI_npu_monitor），界面上出现可拖动的悬浮栏，实时显示 NPU 显存、AI Core 占用、温度、功耗和系统 RAM；还有一个 `NPU Monitor (Stats)` 节点（`utils/NPU Monitor`）可在某步执行后记录占用。数据来自 `npu-smi info`，不在 PATH 时设 `NPU_SMI_PATH`；依赖仅 psutil。单独装：`bash scripts/install_nodes.sh npumon`。Fisher Pose 的模型：`bash scripts/download_models.sh -l fisher_pose.txt`（正面摆姿约 25.6GB，`--with angle` 加换机位约 3.9GB，`--with te_int8` 文本编码器换 INT8 省 8GB）。
+**NPU 监控**：四个别名（`qwen21`、`qwen21-full`、`moss`、`moss-full`）都包含 `npumon`（ComfyuUI_npu_monitor），界面上出现可拖动的悬浮栏，实时显示 NPU 显存、AI Core 占用、温度、功耗和系统 RAM；还有一个 `NPU Monitor (Stats)` 节点（`utils/NPU Monitor`）可在某步执行后记录占用。数据来自 `npu-smi info`，不在 PATH 时设 `NPU_SMI_PATH`；依赖仅 psutil。单独装：`bash scripts/install_nodes.sh npumon`。 Fisher Pose 的模型：`bash scripts/download_models.sh -l fisher_pose.txt`（正面摆姿约 25.6GB，`--with angle` 加换机位约 3.9GB，`--with te_int8` 文本编码器换 INT8 省 8GB）。
+
+**换装 / 发型 / 姿势 / 捏人工作流**（Qwen 2.1 四图参考编辑）：`qwen21-full` 已包含它额外要的 `t8cache`（T8 Block Cache / Spectrum / Sage，Sage 在 NPU 上自动退回原生注意力）和 `derfuu`（DF_Text_Box）。模型：`bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt`（约 30.8GB，含孤海提示词优化的 GGUF；`--without pe_gguf` 约 17.3GB）。提示词优化节点需 `llama-cpp-python`（昇腾上 CPU 跑，aarch64 要源码编译），不装就把该节点旁路。工作流里的 `GoohaiImageLibrary` 图库节点孤海公开仓库还没有，可换成 LoadImage 自己传参考图。
 
 ## 📦 模型清单（含审查状态 / 硬件要求 / 测试状态）
 

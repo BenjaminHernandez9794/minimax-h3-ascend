@@ -1,0 +1,37 @@
+# Qwen-Image 2.1 换装 / 发型 / 姿势 / 捏人（四图参考编辑，非 Turbo 版 UNet）
+# 来源工作流: Qwen 2.1 换装、发型、姿势、捏人.json
+#
+# 用法:
+#   bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt --dry-run         # 先看清单与大小
+#   bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt                   # 默认约 30.8GB（含 GGUF 提示词优化）
+#   bash scripts/download_models.sh -l qwen_image_2.1_outfit.txt --without pe_gguf # 不要提示词优化，约 17.3GB
+#
+# 标签:
+#   (无标签)  必需：Qwen-Image 2.1 INT8 UNet（非 Turbo）、Qwen3-VL 文本编码器、VAE      约 17.3GB
+#   pe_gguf   孤海 QwenImagePromptOptimizer 用的 PE-T2I / PE-I2I GGUF + mmproj（models/LLM）约 13.5GB
+#             该节点在这个工作流里是开启状态；需要 llama-cpp-python，昇腾上只能跑 CPU：
+#               CMAKE_ARGS="-DGGML_NATIVE=ON" pip install llama-cpp-python   # aarch64 需源码编译，十几分钟
+#             不想装就在画布里把「QwenImagePromptOptimizer」节点旁路（Ctrl+B），并用 --without pe_gguf
+#
+# 与 Turbo 清单的区别：UNet 是 qwen_image_2.1_int8_convrot.safetensors（不是 turbo），放在 diffusion_models 根目录；
+# 不用 LoRA。文本编码器 / VAE 与 qwen_image_2.1_turbo.txt 相同，已下载过会自动跳过。
+#
+# 工作流还需要这些自定义节点（bash scripts/install_nodes.sh qwen21-full）:
+#   goohai/Goohaitools-comfyui（孤海系列、TextEncodeQwenImage21GH、QwenImagePromptOptimizer 等）、
+#   T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8（BlockCache / Spectrum / Sage，Sage 在 NPU 上自动退回原生注意力）、
+#   ComfyUI-Easy-Use（easy seed / easy promptLine）、ComfyUI_Comfyroll_CustomNodes（CR Text Concatenate）、
+#   Derfuu_ComfyUI_ModdedNodes（DF_Text_Box）
+#   另：「GoohaiImageLibrary」图库节点（人像 / 服装 / 姿势 / 发型选图）目前孤海公开仓库里还没有，需要作者的整合包；
+#       没有时可把四个图库节点换成 LoadImage 自己上传参考图。
+
+#@default pe_gguf
+
+# ---- 必需 ----
+Comfy-Org/Qwen-Image-2.1:diffusion_models/qwen_image_2.1_int8_convrot.safetensors      diffusion_models
+Comfy-Org/Qwen-Image-2.1:text_encoders/qwen3vl_8b_int8_convrot.safetensors             text_encoders
+Comfy-Org/Qwen-Image-2.1:vae/qwen_image_2.1_vae_bf16.safetensors                       vae
+
+# ---- 孤海提示词优化节点（GGUF，models/LLM）----
+prithivMLmods/Qwen-Image-2.1-PE-T2I-GGUF:Qwen-Image-2.1-PE-T2I.Q5_K_S.gguf        LLM  pe_gguf
+prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.Q5_K_S.gguf        LLM  pe_gguf
+prithivMLmods/Qwen-Image-2.1-PE-I2I-GGUF:Qwen-Image-2.1-PE-I2I.mmproj-bf16.gguf   LLM  pe_gguf

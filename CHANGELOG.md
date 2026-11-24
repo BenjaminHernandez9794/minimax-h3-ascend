@@ -5,6 +5,12 @@
 
 ## 2026-11-24
 
+- `install_nodes.sh`：新增 `t8cache`（T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8：QwenImage21BlockCacheT8 / SpectrumT8 / SageAttentionT8，Sage 只在 CUDA 上走，NPU 上自动用原生注意力）和 `derfuu`（Derfuu_ComfyUI_ModdedNodes：DF_Text_Box），并加进 `qwen21-full`。
+- 新增模型清单 `model_lists/qwen_image_2.1_outfit.txt`：「Qwen 2.1 换装、发型、姿势、捏人」工作流用的非 Turbo INT8 UNet + Qwen3-VL INT8 文本编码器 + VAE（约 17.3GB），默认带孤海 QwenImagePromptOptimizer 的 PE GGUF（`pe_gguf`，约 13.5GB，可 `--without pe_gguf`）。
+- 已知缺口：工作流里的 `GoohaiImageLibrary` 图库节点在孤海公开仓库中还没有发布。
+
+## 2026-11-24
+
 - `install_nodes.sh`：新增 `npumon`（BenjaminHernandez9794/ComfyuUI_npu_monitor，可拖动悬浮栏显示 NPU 显存 / AI Core / 温度 / 功耗 / RAM，另有 `NPU Monitor (Stats)` 节点，依赖仅 psutil），加入 `qwen21`、`qwen21-full`、`moss`、`moss-full` 四个别名。
 
 ## 2026-11-23（ComfyUI v0.46.0）
