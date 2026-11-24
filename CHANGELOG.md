@@ -3,6 +3,10 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-24
+
+- `install_nodes.sh`：新增 `npumon`（BenjaminHernandez9794/ComfyuUI_npu_monitor，可拖动悬浮栏显示 NPU 显存 / AI Core / 温度 / 功耗 / RAM，另有 `NPU Monitor (Stats)` 节点，依赖仅 psutil），加入 `qwen21`、`qwen21-full`、`moss`、`moss-full` 四个别名。
+
 ## 2026-11-23（ComfyUI v0.46.0）
 
 - `setup.sh` 的 `latest` 档升级到 **ComfyUI v0.46.0**（`a277b5bf`），默认切到 fork 分支 `ascend-npu-v0.46.0`；离线补丁 `assets/patches/comfyui-a277b5bf.patch`。
