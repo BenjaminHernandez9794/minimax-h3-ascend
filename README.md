@@ -101,6 +101,16 @@ bash scripts/download_models.sh --dry-run                   # 只列出将要下
 bash scripts/download_models.sh --verify                    # 下完按 HF 的 sha256 校验
 ```
 
+检查 `models` 缺什么（只读，不下载）：
+
+```bash
+bash scripts/check_models.sh                                 # model_lists/ 全部清单概览（-q 只看有问题的行）
+bash scripts/check_models.sh -l qwen_image_2.1_outfit.txt    # 某个清单，标签用法同下载（--with / --without / --lowvram / --all-tags）
+bash scripts/check_models.sh -w 工作流.json                   # 按工作流里各加载节点引用的模型检查（界面 / API 格式、子图都支持）
+```
+
+逐项标出 OK / 缺失 / 下载中（显示 .part 进度）/ 空文件 / 目录错（文件放进了别的模型目录，加载节点读不到）/ 可选（只有旁路节点用到）；工作流里的 GoohaiImageLibrary 也会检查 `models/GHIL` 图库素材。缺的文件会提示在哪个清单、给出补齐命令；有问题时退出码为 1。
+
 **前提**：昇腾环境已装 CANN ≥ 9.0.0（如 CANNLab 镜像自带）。没有 torch / torch_npu 时 `setup.sh` 会读取 CANN 版本自动装配套的版本（默认 torch 2.7.1；`--torch 2.9` 为可选档，装昇腾官方 [ComfyUI 快速开始](https://ascend.github.io/docs/sources/comfyui/quick_start.html) 验证的 CANN 9.1 + torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0，已装其他版本会自动切换；`TORCH_NPU_VERSION` / `TORCHVISION_VERSION` 可直接指定）；系统 Python 只读时自动装到用户目录。依赖安装默认用 uv 加速（没有 uv 时自动安装，`--no-install-uv` 可不装直接用 pip；失败自动回退 pip，`USE_UV=0` 完全关闭）；默认 pip 源为华为云，`PIP_MIRROR` 可换。
 脚本会**自动识别 910B/910C 的卡数**（1/2/4/8）并同步到工作流配置。
 
@@ -277,6 +287,7 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 ├── scripts/
 │   ├── dl_models.py            # 通用分片并行下载器（清单驱动，断点续传，sha256 校验）
 │   ├── download_models.sh      # 下载入口（-l 指定清单 / --with / --without / --lowvram）
+│   ├── check_models.sh         # 检查 models 缺什么（按清单或工作流，只读）
 │   ├── start_comfyui.sh        # 启动（自动识别卡数，内置 aarch64 修复）
 │   ├── set_npu_count.py        # 按实际卡数同步所有工作流
 │   ├── convert_wf.py           # ComfyUI 工作流 UI→API 转换
