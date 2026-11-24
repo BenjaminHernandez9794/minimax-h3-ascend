@@ -6,6 +6,7 @@
 ## 2026-11-24
 
 - `install_nodes.sh`：新增 `gguf`（city96/ComfyUI-GGUF，加载 GGUF 量化的 UNet / 文本编码器，依赖 gguf、sentencepiece、protobuf），加进 `qwen21-full`。
+- `ssh_tunnel.sh`：修复安装 ssh / sshpass 时“卡住没反应”。原来 `apt-get update -qq` 吞掉输出，国内容器连默认 Ubuntu 源会一直挂着。现在每步加超时（`PKG_TIMEOUT`，默认 120 秒）并显示进度，超时自动把 apt 源换成华为云（`APT_MIRROR`）重试；sshpass 装不上或非 root 时改用 `SSH_ASKPASS`；密码改由环境变量传递，不再出现在进程命令行；加 `ConnectTimeout=15`；`stop` 不再按日志文件名 pkill（会误杀 `tail -f` 等进程）。
 - `install_nodes.sh`：新增 `t8cache`（T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8：QwenImage21BlockCacheT8 / SpectrumT8 / SageAttentionT8，Sage 只在 CUDA 上走，NPU 上自动用原生注意力）和 `derfuu`（Derfuu_ComfyUI_ModdedNodes：DF_Text_Box），并加进 `qwen21-full`。
 - 新增模型清单 `model_lists/qwen_image_2.1_outfit.txt`：「Qwen 2.1 换装、发型、姿势、捏人」工作流用的非 Turbo INT8 UNet + Qwen3-VL INT8 文本编码器 + VAE（约 17.3GB），默认带孤海 QwenImagePromptOptimizer 的 PE GGUF（`pe_gguf`，约 13.5GB，可 `--without pe_gguf`）。
 - 新增 `nodes/Goohai-ImageLibrary-Comfyui/`（GoohaiImageLibrary，Goohai 加载图库）：`install_nodes.sh` 新增 `ghil`（本仓库本地节点，复制到 `custom_nodes`，保留已有 `favorites.json` / `random_categories.json`），并加进 `qwen21-full`；首次安装会建 `models/GHIL` 并提示素材目录。

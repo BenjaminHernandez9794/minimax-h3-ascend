@@ -141,7 +141,7 @@ REMOTE_HOST=1.2.3.4 REMOTE_PASS='密码' bash scripts/ssh_tunnel.sh start   # �
 bash scripts/ssh_tunnel.sh status | stop | restart
 ```
 
-之后访问 `http://<公网服务器>:18188`。端口可用 `REMOTE_BIND_PORT` / `LOCAL_PORT` 改。公网服务器 sshd 需开 `GatewayPorts yes`（或 `clientspecified`），否则只绑定在服务器的 127.0.0.1；脚本会自动安装缺失的 ssh / sshpass。
+之后访问 `http://<公网服务器>:18188`。端口可用 `REMOTE_BIND_PORT` / `LOCAL_PORT` 改。公网服务器 sshd 需开 `GatewayPorts yes`（或 `clientspecified`），否则只绑定在服务器的 127.0.0.1；脚本会自动安装缺失的 ssh / sshpass：每步最多等 120 秒并显示进度，默认 apt 源不通时自动换华为云镜像（`APT_MIRROR` 可改，原配置备份为 `*.bak-tunnel`）；sshpass 装不上时改用 ssh 自带的 `SSH_ASKPASS` 传密码（需 OpenSSH ≥ 8.4）。密码只经环境变量传给子进程，`ps` 里看不到。
 
 ### 额外自定义节点
 
