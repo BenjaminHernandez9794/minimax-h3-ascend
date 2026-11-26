@@ -11,6 +11,7 @@
 
 不同的部分：
 - 推理走 `POST {接口地址}/chat/completions`。`top_k`、`min_p`、`chat_template_kwargs` 是 llama.cpp / vLLM 的扩展参数，接口不认（400/422）时自动去掉
+- 默认用流式请求（`stream: true`），避免 Cloudflare 等网关在模型思考时报 524；`QWEN_PE_STREAM=0` 关闭。HTTP 429 / 5xx / 524 自动重试 2 次
 - 不需要 llama-cpp-python 和 GGUF 模型，也没有「卸载模型」选项
 - 图生图和反推要求接口上的模型支持图像输入（如 Qwen3-VL / Qwen2.5-VL 系列）。用孤海 PE 模型本身的话，可以在另一台机器上用 `llama-server -m Qwen-Image-2.1-PE-I2I.Q5_K_S.gguf --mmproj Qwen-Image-2.1-PE-I2I.mmproj-bf16.gguf` 起服务再填地址，效果与本地节点一致
 
