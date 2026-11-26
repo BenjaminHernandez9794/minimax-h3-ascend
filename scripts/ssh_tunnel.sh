@@ -14,19 +14,12 @@ LOG_FILE="${LOG_FILE:-./ssh_tunnel.log}"         # 日志保存路径
 
 # 自动检测并安装缺失的依赖工具 (ssh / sshpass)
 # 国内容器的默认 apt/yum 源（archive/ports.ubuntu.com 等）常年卡住，且 -qq 会把输出全吞掉，看起来像没反应。
-# 这里给每步加超时并显示进度；默认源超时就自动换华为云镜像（APT_MIRROR 可改）再试一次。
+# 默认直接把 apt 源换成华为云镜像再装（APT_MIRROR 可改成别的镜像，如 http://mirrors.aliyun.com）；
+# APT_MIRROR=default 表示保留系统原来的源。每步有超时并显示进度，原配置备份为 *.bak-tunnel。
 APT_MIRROR="${APT_MIRROR:-http://repo.huaweicloud.com}"   # 用 http：精简镜像可能没装 ca-certificates
 PKG_TIMEOUT="${PKG_TIMEOUT:-120}"   # 每步最长秒数
 
-_apt_install() {
-    local opts=(-o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=1)
-    export DEBIAN_FRONTEND=noninteractive
-    echo "  apt-get update（最多 ${PKG_TIMEOUT}s）..."
-    if timeout "$PKG_TIMEOUT" apt-get "${opts[@]}" update && \
-       timeout "$PKG_TIMEOUT" apt-get "${opts[@]}" install -y --no-install-recommends openssh-client sshpass; then
-        return 0
-    fi
-    echo "  默认源不通或太慢，切换到 ${APT_MIRROR} 再试（原配置备份为 *.bak-tunnel）"
+_apt_switch_mirror() {
     local f
     for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
         [ -f "$f" ] || continue
@@ -35,10 +28,27 @@ _apt_install() {
             -e "s#https?://([a-z0-9.-]+\.)?(archive|security|ports)\.ubuntu\.com/ubuntu(-ports)?#${APT_MIRROR}/ubuntu\3#g" \
             -e "s#https?://(deb|security)\.debian\.org/debian(-security)?#${APT_MIRROR}/debian\2#g" \
             -e "s#https?://mirrors\.[a-z0-9.-]+/ubuntu(-ports)?#${APT_MIRROR}/ubuntu\1#g" \
+            -e "s#https?://repo\.huaweicloud\.com/ubuntu(-ports)?#${APT_MIRROR}/ubuntu\1#g" \
             "$f"
     done
+}
+
+_apt_try() {
+    local opts=(-o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=1)
+    echo "  apt-get update（最多 ${PKG_TIMEOUT}s）..."
     timeout "$PKG_TIMEOUT" apt-get "${opts[@]}" update && \
     timeout "$PKG_TIMEOUT" apt-get "${opts[@]}" install -y --no-install-recommends openssh-client sshpass
+}
+
+_apt_install() {
+    export DEBIAN_FRONTEND=noninteractive
+    if [ "$APT_MIRROR" = default ]; then
+        _apt_try
+        return
+    fi
+    echo "  apt 源切换到 ${APT_MIRROR}（原配置备份为 *.bak-tunnel；保留原源请设 APT_MIRROR=default）"
+    _apt_switch_mirror
+    _apt_try
 }
 
 _yum_install() {  # $1 = yum 或 dnf（openEuler / CentOS / 麒麟）
