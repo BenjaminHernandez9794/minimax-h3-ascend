@@ -23,7 +23,7 @@
 # =============================================================
 set -uo pipefail
 
-usage() { sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//'; }
 
 declare -A NODE_URL=(
     [goohai]=https://github.com/goohai/Goohaitools-comfyui.git
