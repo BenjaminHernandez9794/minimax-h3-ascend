@@ -2,16 +2,17 @@
 # =============================================================
 # 安装额外的 ComfyUI 自定义节点（克隆/更新 + 装依赖，不会动预装的 torch / torch_npu）
 # 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--no-install-uv] [--list] <名称|别名|GitHub 地址> ...
-#   名称: goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil encpng fisherpose npumon gguf seedvr2（可用逗号分隔）
+#   名称: goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil goohaipe encpng fisherpose npumon gguf seedvr2（可用逗号分隔）
 #         t8     = T8 提示词增强（Qwen Image 2.1 / MiniMax-H3，可接 OpenAI 兼容 API）
 #         t8cache = T8 Qwen-Image 2.1 加速（Block Cache / Spectrum / Sage；Sage 只在 CUDA 上生效，NPU 上自动走原生注意力）
 #         derfuu = Derfuu ModdedNodes（DF_Text_Box 等文本/数值小节点）
 #         ghil   = Goohai 加载图库（GoohaiImageLibrary，人像/服装/姿势/发型选图；随本仓库 nodes/ 分发，素材另放 models/GHIL）
+#         goohaipe = 孤海 Qwen image 2.1 提示词优化的 OpenAI 兼容接口版（系统提示词同孤海，不要 llama-cpp；随本仓库 nodes/ 分发，需 goohai）
 #         encpng = ComfyUI-EncryptedPNG（AES-GCM 加密保存 / 解密加载图片）
 #         fisherpose = Fisher Pose（单/双人姿势编辑 + 换机位，配合 Qwen Image 2.1；照片识别姿势另需 controlnet_aux）
 #         npumon = ComfyUI NPU Monitor（可拖动悬浮栏：NPU 显存 / AI Core / 温度 / RAM，四个别名都包含）
 #         gguf   = ComfyUI-GGUF（city96，加载 GGUF 量化的 UNet / 文本编码器：Unet Loader (GGUF) 等）
-#   别名: qwen21      = goohai,rgthree,layerstyle,t8,encpng,fisherpose,npumon （Qwen-Image 2.1 整合工作流 + 提示词增强 + 加密保存 + 姿势）
+#   别名: qwen21      = goohai,goohaipe,rgthree,layerstyle,t8,encpng,fisherpose,npumon （Qwen-Image 2.1 整合工作流 + 提示词增强 + 加密保存 + 姿势）
 #         qwen21-full = qwen21 + easyuse,comfyroll,t8cache,derfuu,ghil,gguf （连旁路分组里的节点、换装/发型/姿势/捏人工作流一起装）
 #         moss        = rgthree,easyuse,npumon          （MOSS-Image 整合工作流必需的；
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
@@ -35,14 +36,15 @@ declare -A NODE_URL=(
     [t8cache]=https://github.com/T8mars/Comfyui-Qwen-Image-2.1-BlockCache-T8.git
     [derfuu]=https://github.com/Derfuu/Derfuu_ComfyUI_ModdedNodes.git
     [ghil]=local:nodes/Goohai-ImageLibrary-Comfyui      # 本仓库自带，不走 git
+    [goohaipe]=local:nodes/Goohai-QwenPE-OpenAI         # 本仓库自带，依赖 goohai
     [encpng]=https://github.com/BenjaminHernandez9794/ComfyUI-EncryptedPNG.git
     [fisherpose]=https://github.com/Work-Fisher/ComfyUI-Fisher-Pose.git
     [npumon]=https://github.com/BenjaminHernandez9794/ComfyuUI_npu_monitor.git
     [gguf]=https://github.com/city96/ComfyUI-GGUF.git
 )
 declare -A NODE_ALIAS=(
-    [qwen21]="goohai rgthree layerstyle t8 encpng fisherpose npumon"
-    [qwen21-full]="goohai rgthree layerstyle t8 encpng fisherpose npumon easyuse comfyroll t8cache derfuu ghil gguf"
+    [qwen21]="goohai goohaipe rgthree layerstyle t8 encpng fisherpose npumon"
+    [qwen21-full]="goohai goohaipe rgthree layerstyle t8 encpng fisherpose npumon easyuse comfyroll t8cache derfuu ghil gguf"
     [moss]="rgthree easyuse npumon"
     [moss-full]="rgthree easyuse npumon seedvr2"
 )
@@ -53,7 +55,7 @@ while [ $# -gt 0 ]; do
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
         --list)
-            for k in goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil encpng fisherpose npumon gguf seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
+            for k in goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil goohaipe encpng fisherpose npumon gguf seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
             for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
         --no-install-uv) UV_AUTO_INSTALL=0; shift ;;
@@ -124,7 +126,7 @@ for url in "${URLS[@]}"; do
         if [ -d "$dir/.git" ]; then echo "!! $dir 是 git 仓库，跳过（要换成本仓库版本请先删除它）"; FAILED+=("$name"); continue; fi
         mkdir -p "$dir"
         keep=/tmp/node_keep_$name; rm -rf "$keep"; mkdir -p "$keep"
-        for f in favorites.json random_categories.json; do [ -f "$dir/$f" ] && cp -p "$dir/$f" "$keep/"; done
+        for f in favorites.json random_categories.json config.json; do [ -f "$dir/$f" ] && cp -p "$dir/$f" "$keep/"; done
         cp -a "$lsrc/." "$dir/"
         cp -p "$keep"/* "$dir/" 2>/dev/null || true
         rm -rf "$keep"

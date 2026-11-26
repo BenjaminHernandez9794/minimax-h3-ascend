@@ -8,6 +8,8 @@
 - 新增工作流 `workflows/qwen2.1_换装发型姿势捏人_npu.json`：「Qwen 2.1 换装、发型、姿势、捏人」的昇腾版。删掉了 `Qwen Image 2.1 Sage Attention (T8)` 节点（SageAttention 只支持 CUDA，NPU 上没装会直接报错；NPU 本来就走原生注意力，删掉不影响画质），UNETLoader 直接连到 BlockCache。节点用 `install_nodes.sh qwen21-full` 安装。int8_convrot 模型在 NPU 上尚未实测。
 - 同一工作流：`Qwen image 2.1 提示词优化` 节点默认设为绕过（Ctrl+B）。它依赖 llama-cpp-python，而官方只有 CUDA/Metal 的 wheel，Linux aarch64 上没有，未安装时报 `No module named 'llama_cpp'`。绕过后直接使用你写的提示词；「只给图、不写提示词」的反推模式不可用。
 - 新增 `scripts/install_llama_cpp.sh`：在昇腾 910B（Linux aarch64，没有官方 wheel）上从源码编译 JamePeng/llama-cpp-python（CPU 版），供孤海「Qwen image 2.1 提示词优化」节点使用（要求 ≥ 0.3.48 且带 `Qwen35ChatHandler`）。缺 gcc/g++/git/binutils 时用 apt/dnf/yum 补装，cmake/ninja 不够新时用 pip 装；aarch64 按 `/proc/cpuinfo` 拼 `-march`（避免 `-mcpu=native` 多开指令导致 Illegal instruction），`LLAMA_NATIVE=1` 可改回本机优化。务必用 ComfyUI 的 Python 运行：`PYTHON=/tmp/code/venv/bin/python bash scripts/install_llama_cpp.sh`。
+- 新增本地节点 `nodes/Goohai-QwenPE-OpenAI/`（`QwenImagePromptOptimizerOpenAI`，「Qwen image 2.1 提示词优化（OpenAI 兼容接口）」）：照孤海 QwenImagePromptOptimizer 复刻，系统提示词、语言锁、透明背景、图像编号、采样参数、JSON 重试与输出都直接调用孤海的 `qwen_image_runtime`，只把 llama.cpp 推理换成远程 `/chat/completions`，NPU 机器不用编译 llama-cpp-python。`install_nodes.sh` 新增 `goohaipe`，加入 `qwen21`、`qwen21-full`。
+- 新增 `workflows/qwen2.1_换装发型姿势捏人_npu_openai.json`：换装工作流的提示词优化节点换成上面的远程版（接线不变，需填接口地址 / 模型 / Key 或设环境变量 `QWEN_PE_BASE_URL` / `QWEN_PE_MODEL` / `QWEN_PE_API_KEY`）。
 
 ## 2026-11-24
 
