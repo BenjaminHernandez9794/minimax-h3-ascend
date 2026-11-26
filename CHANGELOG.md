@@ -3,6 +3,10 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-26
+
+- 新增工作流 `workflows/qwen2.1_换装发型姿势捏人_npu.json`：「Qwen 2.1 换装、发型、姿势、捏人」的昇腾版。删掉了 `Qwen Image 2.1 Sage Attention (T8)` 节点（SageAttention 只支持 CUDA，NPU 上没装会直接报错；NPU 本来就走原生注意力，删掉不影响画质），UNETLoader 直接连到 BlockCache。节点用 `install_nodes.sh qwen21-full` 安装。int8_convrot 模型在 NPU 上尚未实测。
+
 ## 2026-11-24
 
 - `install_nodes.sh`：新增 `gguf`（city96/ComfyUI-GGUF，加载 GGUF 量化的 UNet / 文本编码器，依赖 gguf、sentencepiece、protobuf），加进 `qwen21-full`。
