@@ -5,6 +5,7 @@
 
 ## 2026-11-26
 
+- `goohaipe` 远程提示词优化节点：默认改用流式请求，解决经 Cloudflare 等网关的接口报 `HTTP 524`（网关等不到响应头就断开）；429 / 5xx / 524 自动重试 2 次，524 给出中文说明。`QWEN_PE_STREAM=0` 可关闭流式。
 - `ssh_tunnel.sh`：装 ssh / sshpass 时默认直接把 apt 源换成华为云镜像（原来先等默认源 `ports.ubuntu.com` 超时才换，国内下载只有一百多 KB/s）。`APT_MIRROR` 可换成其他镜像，`APT_MIRROR=default` 保留原源；原配置备份为 `*.bak-tunnel`。
 - 新增工作流 `workflows/qwen2.1_换装发型姿势捏人_npu.json`：「Qwen 2.1 换装、发型、姿势、捏人」的昇腾版。删掉了 `Qwen Image 2.1 Sage Attention (T8)` 节点（SageAttention 只支持 CUDA，NPU 上没装会直接报错；NPU 本来就走原生注意力，删掉不影响画质），UNETLoader 直接连到 BlockCache。节点用 `install_nodes.sh qwen21-full` 安装。int8_convrot 模型在 NPU 上尚未实测。
 - 同一工作流：`Qwen image 2.1 提示词优化` 节点默认设为绕过（Ctrl+B）。它依赖 llama-cpp-python，而官方只有 CUDA/Metal 的 wheel，Linux aarch64 上没有，未安装时报 `No module named 'llama_cpp'`。绕过后直接使用你写的提示词；「只给图、不写提示词」的反推模式不可用。

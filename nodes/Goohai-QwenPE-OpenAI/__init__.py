@@ -101,19 +101,72 @@ class _HTTPError(RuntimeError):
         self.status = status
 
 
-def _post(url: str, api_key: str, payload: dict, timeout: int) -> dict:
+_RETRY_STATUS = {429, 500, 502, 503, 504, 520, 522, 524}
+_STREAM = os.environ.get("QWEN_PE_STREAM", "1").strip() not in ("0", "false", "no")
+
+
+def _read_sse(resp) -> dict:
+    """把流式（SSE）返回拼回非流式的结构：{"choices":[{"message":{"content":...}}],"usage":...}"""
+    parts, usage = [], {}
+    for raw in resp:
+        line = raw.decode("utf-8", "replace").strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if data == "[DONE]":
+            break
+        try:
+            chunk = json.loads(data)
+        except Exception:
+            continue
+        if chunk.get("error"):
+            raise RuntimeError(f"接口返回错误：{json.dumps(chunk['error'], ensure_ascii=False)[:500]}")
+        usage = chunk.get("usage") or usage
+        for ch in chunk.get("choices") or []:
+            piece = (ch.get("delta") or {}).get("content") or (ch.get("message") or {}).get("content")
+            if piece:
+                parts.append(piece)
+    return {"choices": [{"message": {"content": "".join(parts)}}], "usage": usage}
+
+
+def _post_once(url: str, api_key: str, payload: dict, timeout: int) -> dict:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    headers = {"Content-Type": "application/json",
+               "Accept": "text/event-stream" if payload.get("stream") else "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            ctype = resp.headers.get("Content-Type", "")
+            if payload.get("stream") and "event-stream" in ctype:
+                return _read_sse(resp)
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise _HTTPError(exc.code, exc.read().decode("utf-8", "replace")) from None
     except urllib.error.URLError as exc:
         raise RuntimeError(f"无法连接 {url}：{exc.reason}") from None
+
+
+def _post(url: str, api_key: str, payload: dict, timeout: int) -> dict:
+    """默认用流式请求：网关（如 Cloudflare 的 524）等不到响应头就断，流式能马上收到数据。
+    网关超时 / 限流 / 5xx 时最多再试 2 次。QWEN_PE_STREAM=0 关闭流式。"""
+    payload = dict(payload, stream=_STREAM)
+    for attempt in range(3):
+        try:
+            return _post_once(url, api_key, payload, timeout)
+        except _HTTPError as exc:
+            if exc.status not in _RETRY_STATUS or attempt == 2:
+                if exc.status == 524:
+                    raise RuntimeError(
+                        "HTTP 524：接口前面的网关（多为 Cloudflare）等上游模型超时了。"
+                        "换个更快的模型、减少参考图，或换不经过 Cloudflare 的接口地址。"
+                    ) from None
+                raise
+            wait = 3 * (attempt + 1)
+            print(f"[QwenPE-OpenAI] HTTP {exc.status}，{wait}s 后重试（{attempt + 1}/2）", flush=True)
+            time.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 _NO_EXTRAS: set[str] = set()
@@ -262,7 +315,7 @@ class QwenImagePromptOptimizerOpenAI:
 
         max_tokens = int(getattr(rt, "DEFAULT_MAX_OUTPUT_TOKENS", 2048))
         payload = {"model": model, "messages": messages, "seed": seed, "temperature": 0.3,
-                   "top_p": 0.9, "max_tokens": max_tokens, "stream": False}
+                   "top_p": 0.9, "max_tokens": max_tokens}
         # 原节点的 top_k / min_p / reasoning_budget=0（关思考）；OpenAI 官方接口不认时自动去掉
         extras = {"top_k": 30, "min_p": 0.05, "chat_template_kwargs": {"enable_thinking": False}}
         url = _endpoint(base_url)
