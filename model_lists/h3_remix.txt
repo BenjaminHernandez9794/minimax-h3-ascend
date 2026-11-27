@@ -1,0 +1,43 @@
+# MiniMax-H3 Remix 人物替换 / 长视频（FeiHou Easy H3 一键工作流）
+# 来源工作流: workflows/MiniMax-H3-Remix_人物替换长视频_昇腾适配.json
+#
+# 用法:
+#   bash scripts/download_models.sh -l h3_remix.txt --dry-run       # 先看清单与大小
+#   bash scripts/download_models.sh -l h3_remix.txt                 # 默认（跑人物替换够用）
+#   bash scripts/download_models.sh -l h3_remix.txt --with enhancer # 额外下第二段 3D 潜空间放大模型
+#
+# 配套节点: bash scripts/install_nodes.sh h3remix
+#   = feihou（FX-FeiHou/ComfyUI-FeiHou-Easy-H3）+ feihoutools（ComfyUI-FeiHou-Toolbox）+ kjnodes（kijai，GetNode/SetNode）
+#
+# 标签:
+#   (无标签)  必需：H3 主模型(int8_convrot) + Qwen3-VL 文本编码器 + 视频/音频 VAE
+#             + Viggle Remake 替换 LoRA + 人脸检测/识别模型（face_yolov8m + insightface buffalo_l）
+#   enhancer  第二段增强 FeiHouEasyH3SampleEnhancer2nd 用的「H3 学习型 3D 潜空间放大」模型（放 models/latent_upscale_models）。
+#             默认不下：该节点的 3D latent upscaler 依赖 comfy_kitchen 核（comfy/ldm/minimax/latent_upscaler.py 硬 import，
+#             fork 未改），昇腾上可能报错 → 建议先把这个节点旁路。要用再 --with enhancer。
+#             注意：工作流里写的是 minimax_h3_latent_upscaler_3d_bf16.safetensors，社区上游只有 fp16 版，
+#             下完后在节点的 latent_upscaler 下拉里选实际下到的文件名即可（或自行改名）。
+#
+# 核心 H3 权重与 ascend.txt 同源（Comfy-Org/MiniMax-H3），之前跑过 ascend.txt 会自动跳过。
+# 换脸依赖落位：face_yolov8m → models/ultralytics/bbox；buffalo_l 的 2d106det + w600k_r50 → models/insightface/models/buffalo_l。
+#
+# 未包含（需自备 / 可选）:
+#   - 提示词本地大模型 GGUF（FeiHouEasyH3Setup 里的「本地模型/*.gguf」）：体积大且多为自选，
+#     不想本地跑可在 Easy H3 设置页填 OpenAI 兼容 API（Base URL + Key），不占本清单。
+
+# ---- 必需：H3 主模型 / 文本编码器 / VAE（int8_convrot，昇腾量化格式）----
+Comfy-Org/MiniMax-H3:diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors  diffusion_models
+Comfy-Org/MiniMax-H3:text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors      text_encoders
+Comfy-Org/MiniMax-H3:vae/minimax_h3_video_vae_fp16.safetensors                          vae
+Comfy-Org/MiniMax-H3:vae/minimax_h3_audio_vae_fp32.safetensors                          vae
+
+# ---- 必需：Viggle Remake 替换 LoRA（工作流里放在 loras/H3/）----
+Viggle/Viggle-Remake:comfyui/viggle_remake_swap_comfyui.safetensors                     loras/H3
+
+# ---- 必需：人脸检测 + 识别（换脸用）----
+Bingsu/adetailer:face_yolov8m.pt                                                        ultralytics/bbox
+DavidHoa/buffalo_l:2d106det.onnx                                                        insightface/models/buffalo_l
+DavidHoa/buffalo_l:w600k_r50.onnx                                                       insightface/models/buffalo_l
+
+# ---- 可选：第二段 3D 潜空间放大（昇腾上可能要旁路，见上）----
+KENIC-1/minimax_h3_latent_upscaler_3d_fp16_V2:minimax_h3_latent_upscaler_3d_fp16_V2.safetensors  latent_upscale_models  enhancer

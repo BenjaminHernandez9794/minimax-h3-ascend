@@ -18,7 +18,7 @@
 #         kjnodes = ComfyUI-KJNodes（kijai，提供 Set/Get 节点等；工作流用到 GetNode/SetNode）
 #   别名: qwen21      = goohai,goohaipe,rgthree,layerstyle,t8,encpng,fisherpose,npumon （Qwen-Image 2.1 整合工作流 + 提示词增强 + 加密保存 + 姿势）
 #         qwen21-full = qwen21 + easyuse,comfyroll,t8cache,derfuu,ghil,gguf （连旁路分组里的节点、换装/发型/姿势/捏人工作流一起装）
-#         h3remix     = feihou,feihoutools,kjnodes       （MiniMax-H3 Remix 人物替换长视频工作流，昇腾适配版 workflows/MiniMax-H3-Remix_人物替换长视频_昇腾适配.json）
+#         h3remix     = feihou,feihoutools,kjnodes       （MiniMax-H3 Remix 人物替换长视频工作流 workflows/MiniMax-H3-Remix_人物替换长视频_昇腾适配.json；模型: download_models.sh -l h3_remix.txt）
 #         moss        = rgthree,easyuse,npumon          （MOSS-Image 整合工作流必需的；
 #                       另需 ResolutionSelector 节点，整合包来源待确认，需手动装；
 #                       SeedVR2 超分 / TE-Speed-MOSS 均为旁路可选，TE-Speed-MOSS 仅 Windows 不装）
