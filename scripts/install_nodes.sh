@@ -2,7 +2,7 @@
 # =============================================================
 # 安装额外的 ComfyUI 自定义节点（克隆/更新 + 装依赖，不会动预装的 torch / torch_npu）
 # 用法: bash scripts/install_nodes.sh [--gh-proxy URL] [--no-install-uv] [--list] <名称|别名|GitHub 地址> ...
-#   名称: goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil goohaipe encpng fisherpose npumon gguf seedvr2（可用逗号分隔）
+#   名称: goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil goohaipe qwenpe encpng fisherpose npumon gguf seedvr2（可用逗号分隔）
 #         t8     = T8 提示词增强（Qwen Image 2.1 / MiniMax-H3，可接 OpenAI 兼容 API）
 #         t8cache = T8 Qwen-Image 2.1 加速（Block Cache / Spectrum / Sage；Sage 只在 CUDA 上生效，NPU 上自动走原生注意力）
 #         derfuu = Derfuu ModdedNodes（DF_Text_Box 等文本/数值小节点）
@@ -12,6 +12,7 @@
 #         fisherpose = Fisher Pose（单/双人姿势编辑 + 换机位，配合 Qwen Image 2.1；照片识别姿势另需 controlnet_aux）
 #         npumon = ComfyUI NPU Monitor（可拖动悬浮栏：NPU 显存 / AI Core / 温度 / RAM，四个别名都包含）
 #         gguf   = ComfyUI-GGUF（city96，加载 GGUF 量化的 UNet / 文本编码器：Unet Loader (GGUF) 等）
+#         qwenpe = Qwen Image 2.1 原生提示词优化（benjiyaya，QwenImage21_T2I/EditPromptRewrite，用 PE 文本编码器跑在 NPU 上，不要 llama-cpp）
 #   别名: qwen21      = goohai,goohaipe,rgthree,layerstyle,t8,encpng,fisherpose,npumon （Qwen-Image 2.1 整合工作流 + 提示词增强 + 加密保存 + 姿势）
 #         qwen21-full = qwen21 + easyuse,comfyroll,t8cache,derfuu,ghil,gguf （连旁路分组里的节点、换装/发型/姿势/捏人工作流一起装）
 #         moss        = rgthree,easyuse,npumon          （MOSS-Image 整合工作流必需的；
@@ -41,10 +42,11 @@ declare -A NODE_URL=(
     [fisherpose]=https://github.com/Work-Fisher/ComfyUI-Fisher-Pose.git
     [npumon]=https://github.com/BenjaminHernandez9794/ComfyuUI_npu_monitor.git
     [gguf]=https://github.com/city96/ComfyUI-GGUF.git
+    [qwenpe]=https://github.com/benjiyaya/ComfyUI-Qwen-Image-2.1-Prompt-Enhancer.git
 )
 declare -A NODE_ALIAS=(
     [qwen21]="goohai goohaipe rgthree layerstyle t8 encpng fisherpose npumon"
-    [qwen21-full]="goohai goohaipe rgthree layerstyle t8 encpng fisherpose npumon easyuse comfyroll t8cache derfuu ghil gguf"
+    [qwen21-full]="goohai goohaipe qwenpe rgthree layerstyle t8 encpng fisherpose npumon easyuse comfyroll t8cache derfuu ghil gguf"
     [moss]="rgthree easyuse npumon"
     [moss-full]="rgthree easyuse npumon seedvr2"
 )
@@ -55,7 +57,7 @@ while [ $# -gt 0 ]; do
         --gh-proxy)   GH_PROXY="${2:?--gh-proxy 需要一个地址}"; shift 2 ;;
         --gh-proxy=*) GH_PROXY="${1#*=}"; shift ;;
         --list)
-            for k in goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil goohaipe encpng fisherpose npumon gguf seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
+            for k in goohai rgthree layerstyle easyuse comfyroll t8 t8cache derfuu ghil goohaipe qwenpe encpng fisherpose npumon gguf seedvr2; do printf '  %-11s %s\n' "$k" "${NODE_URL[$k]}"; done
             for k in qwen21 qwen21-full moss moss-full; do printf '  %-11s = %s\n' "$k" "${NODE_ALIAS[$k]}"; done
             exit 0 ;;
         --no-install-uv) UV_AUTO_INSTALL=0; shift ;;

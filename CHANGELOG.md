@@ -3,6 +3,10 @@
 > 这个仓库是**活的** —— 每次真机实测、每个新机型、每个新坑都会记在这里。
 > 如果你看到某个仓库内容和这里一模一样但**没有后续更新**，那大概率是搬运的死仓库。
 
+## 2026-11-27
+
+- 新增原生提示词优化路线（不用 GGUF / llama-cpp，跑在 NPU 上）：`install_nodes.sh` 新增 `qwenpe`（benjiyaya/ComfyUI-Qwen-Image-2.1-Prompt-Enhancer，QwenImage21_T2I/EditPromptRewrite），加入 `qwen21-full`；`model_lists/qwen_image_2.1_outfit.txt` 把孤海的 PE GGUF 换成官方 PE 文本编码器 int8_convrot（`pe` 标签，I2I 9.5GB；`pe_t2i` 可选）；新增 `workflows/qwen2.1_换装发型姿势捏人_npu_native_pe.json`：把工作流里的孤海提示词优化节点换成原生 CLIPLoader(type=qwen_image) + QwenImage21_EditPromptRewrite，接线不变。
+
 ## 2026-11-26
 
 - `goohaipe` 远程提示词优化节点：默认改用流式请求，解决经 Cloudflare 等网关的接口报 `HTTP 524`（网关等不到响应头就断开）；429 / 5xx / 524 自动重试 2 次，524 给出中文说明。`QWEN_PE_STREAM=0` 可关闭流式。
