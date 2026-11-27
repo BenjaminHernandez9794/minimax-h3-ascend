@@ -6,6 +6,7 @@
 ## 2026-11-27
 
 - 新增原生提示词优化路线（不用 GGUF / llama-cpp，跑在 NPU 上）：`install_nodes.sh` 新增 `qwenpe`（benjiyaya/ComfyUI-Qwen-Image-2.1-Prompt-Enhancer，QwenImage21_T2I/EditPromptRewrite），加入 `qwen21-full`；`model_lists/qwen_image_2.1_outfit.txt` 把孤海的 PE GGUF 换成官方 PE 文本编码器 int8_convrot（`pe` 标签，I2I 9.5GB；`pe_t2i` 可选）；新增 `workflows/qwen2.1_换装发型姿势捏人_npu_native_pe.json`：把工作流里的孤海提示词优化节点换成原生 CLIPLoader(type=qwen_image) + QwenImage21_EditPromptRewrite，接线不变。
+- FeiHou「MiniMax-H3 Remix 人物替换长视频 v3」工作流昇腾适配：`install_nodes.sh` 新增 `feihou`（FX-FeiHou/ComfyUI-FeiHou-Easy-H3）/ `feihoutools`（ComfyUI-FeiHou-Toolbox）/ `kjnodes`（kijai/ComfyUI-KJNodes，GetNode/SetNode）与别名 `h3remix`（=三者）；新增 `workflows/MiniMax-H3-Remix_人物替换长视频_昇腾适配.json`：移除两处「MiniMax H3 Attentions」子图（SageAttention / BlockSparse(sol-attn) / comfy-kitchen INT8 注意力均 CUDA 专用，昇腾上不可用或回退无益），模型直通走原生注意力，对齐仓库现有昇腾 H3 工作流。注意 FeiHouEasyH3SampleEnhancer2nd 的 3D latent upscaler 依赖 comfy_kitchen，昇腾若报错请旁路该节点。
 
 ## 2026-11-26
 

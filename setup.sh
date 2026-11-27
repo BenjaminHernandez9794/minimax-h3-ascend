@@ -11,7 +11,7 @@
 #   --torch 2.9     可选档：装 torch 2.9.0 + torch_npu 2.9.0.post2 + torchvision 0.24.0（CANN 9.1，
 #                   昇腾官方 ComfyUI 快速开始文档验证的组合）；已装其他版本时会切换过去。默认仍是 2.7.1
 #   --nodes LIST    顺带安装额外自定义节点（逗号分隔，也可用环境变量 CUSTOM_NODES），如
-#                   qwen21 / qwen21-full / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
+#                   qwen21 / qwen21-full / h3remix / goohai,rgthree；详见 bash scripts/install_nodes.sh --list
 #   --no-install-uv 没有 uv 时不自动安装、直接用 pip（默认自动装 uv 加速；也可用 UV_AUTO_INSTALL=0，USE_UV=0 则完全不用 uv）
 # =============================================================
 set -euo pipefail
