@@ -153,6 +153,8 @@ bash scripts/install_nodes.sh --list    # 可选名称与别名
 
 `qwen21` / `qwen21-full` 现在也包含 T8 提示词增强节点（Qwen Image 2.1 Prompt Enhancer，可选 OpenAI 兼容接口，留空时读 `OPENAI_BASE_URL` / `OPENAI_API_KEY`）和 ComfyUI-EncryptedPNG（AES-GCM 加密保存与解密加载，密码留空时读 `ENCPNG_PASSWORD`）。另含 Fisher Pose（单/双人姿势编辑 + 换机位；所需 VNCCS LoRA 等模型见其安装文档，照片识别姿势另需 comfyui_controlnet_aux）。单独装：`bash scripts/install_nodes.sh t8,encpng,fisherpose`。
 
+**MiniMax-H3 Remix 人物替换长视频**（FeiHou Easy H3 一键工作流）：别名 `h3remix` 一次装好 `feihou`（FX-FeiHou/ComfyUI-FeiHou-Easy-H3）、`feihoutools`（工具箱，VideoCombineV2 等）和 `kjnodes`（kijai，GetNode/SetNode）。单独装：`bash scripts/install_nodes.sh h3remix`。昇腾适配工作流 `workflows/MiniMax-H3-Remix_人物替换长视频_昇腾适配.json` 已移除整条「MiniMax H3 Attentions」子图（SageAttention / BlockSparse / comfy-kitchen INT8 注意力都是 CUDA 专用，昇腾上不可用或自动回退），模型直通走原生注意力。模型用 `*_int8_convrot.safetensors`。注意：第二段增强 `FeiHouEasyH3SampleEnhancer2nd` 用的 3D latent upscaler 依赖 `comfy_kitchen` 核，昇腾若报错先把该节点旁路；`install_nodes.sh` 只装 requirements、不跑 FeiHou 的 `install.py`（其 GGUF 选择在昇腾上用不到）。
+
 **NPU 监控**：四个别名（`qwen21`、`qwen21-full`、`moss`、`moss-full`）都包含 `npumon`（ComfyuUI_npu_monitor），界面上出现可拖动的悬浮栏，实时显示 NPU 显存、AI Core 占用、温度、功耗和系统 RAM；还有一个 `NPU Monitor (Stats)` 节点（`utils/NPU Monitor`）可在某步执行后记录占用。数据来自 `npu-smi info`，不在 PATH 时设 `NPU_SMI_PATH`；依赖仅 psutil。单独装：`bash scripts/install_nodes.sh npumon`。
 
 **GGUF 模型**：`qwen21-full` 包含 `gguf`（city96/ComfyUI-GGUF），提供 Unet Loader (GGUF)、CLIPLoader (GGUF) 等节点，模型放 `models/unet`（或 `diffusion_models`）与 `models/text_encoders`。单独装：`bash scripts/install_nodes.sh gguf`。它用 PyTorch 逐层反量化，NPU 上可用但比 INT8 慢，显存够时优先用 INT8 版本。 Fisher Pose 的模型：`bash scripts/download_models.sh -l fisher_pose.txt`（正面摆姿约 25.6GB，`--with angle` 加换机位约 3.9GB，`--with te_int8` 文本编码器换 INT8 省 8GB）。
@@ -298,7 +300,7 @@ git clone https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git
 │   └── ...
 ├── nodes/                      # 随仓库分发的自定义节点（Goohai-ImageLibrary-Comfyui）
 ├── model_lists/                # 模型下载清单（ascend.txt / nvidia.txt，格式见其 README）
-├── workflows/                  # 10 个工作流 JSON
+├── workflows/                  # 14 个工作流 JSON
 ├── assets/                     # 昇腾适配补丁 + 验证版节点 + 演示图
 ├── docs/
 │   ├── 出片操作手册.md
